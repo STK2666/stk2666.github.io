@@ -88,11 +88,11 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 # 📝 Publications
 
-- GReg: Geometry-Aware Region Refinement for Sign Language Video Generation, **Tongkai Shi**, L. Hu, F. Shang, L. Gao, W. Feng, ***ICCV 2025***
+- [GReg: Geometry-Aware Region Refinement for Sign Language Video Generation](https://openaccess.thecvf.com/content/ICCV2025/papers/Shi_GReg_Geometry-Aware_Region_Refinement_for_Sign_Language_Video_Generation_ICCV_2025_paper.pdf), **Tongkai Shi**, L. Hu, F. Shang, L. Gao, W. Feng, **[ICCV 2025]**
 
-- Pose-guided Fine-grained Sign Language Video Generation, **Tongkai Shi**, L. Hu, F. Shang, J. Feng, P. Liu, W. Feng, ***ECCV 2024***
+- [Pose-guided Fine-grained Sign Language Video Generation](https://arxiv.org/pdf/2409.16709), **Tongkai Shi**, L. Hu, F. Shang, J. Feng, P. Liu, W. Feng, **[ECCV 2024]**
 
-- Deep Correlated Prompting for Visual Recognition with Missing Modalities, L. Hu, **Tongkai Shi**, W. Feng, F. Shang, L. Wan, ***NeurIPS 2024***
+- [Deep Correlated Prompting for Visual Recognition with Missing Modalities](https://proceedings.neurips.cc/paper_files/paper/2024/file/7ca55c8276acf1f0aa996cd3622d1df4-Paper-Conference.pdf), L. Hu, **Tongkai Shi**, W. Feng, F. Shang, L. Wan, **[NeurIPS 2024]**
 
 
 
