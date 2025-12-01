@@ -124,6 +124,6 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 <br>
 
-<div style="width: 100%; display: flex; justify-content: center; margin-top: 50px;">
+<div style="width: 20%; display: flex; justify-content: center; margin-top: 50px;">
     <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=UaO9kwVJU5OVMBeAihBYjSoeB13gU_rSGdZIafFlWsA&cl=ffffff&w=a"></script>
 </div>
