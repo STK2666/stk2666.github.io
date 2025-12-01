@@ -125,7 +125,7 @@ Pose-guided Fine-grained Sign Language Video Generation
 <br>
 
 <div style="width: 100%; display: flex; justify-content: center; margin-top: 20px;">
-    <a href="https://clustrmaps.com/site/1c0x3" title="Visit tracker">
+    <a href="https://clustrmaps.com/site/1c8lk" title="Visit tracker">
         <img src="//www.clustrmaps.com/map_v2.png?d=UaO9kwVJU5OVMBeAihBYjSoeB13gU_rSGdZIafFlWsA&cl=ffffff" alt="Tongkai Shi ClustrMaps">
     </a>
 </div>
