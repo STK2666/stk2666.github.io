@@ -3,7 +3,7 @@ permalink: /
 title: ""
 excerpt: ""
 author_profile: true
-redirect_from: 
+redirect_from:
   - /about/
   - /about.html
 ---
@@ -17,42 +17,65 @@ redirect_from:
 
 <span class='anchor' id='about-me'></span>
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. Suspendisse condimentum, libero vel tempus mattis, risus risus vulputate libero, elementum fermentum mi neque vel nisl. Maecenas facilisis maximus dignissim. Curabitur mattis vulputate dui, tincidunt varius libero luctus eu. Mauris mauris nulla, scelerisque eget massa id, tincidunt congue felis. Sed convallis tempor ipsum rhoncus viverra. Pellentesque nulla orci, accumsan volutpat fringilla vitae, maximus sit amet tortor. Aliquam ultricies odio ut volutpat scelerisque. Donec nisl nisl, porttitor vitae pharetra quis, fringilla sed mi. Fusce pretium dolor ut aliquam consequat. Cras volutpat, tellus accumsan mattis molestie, nisl lacus tempus massa, nec malesuada tortor leo vel quam. Aliquam vel ex consectetur, vehicula leo nec, efficitur eros. Donec convallis non urna quis feugiat.
+I am currently a M.Sc. student in Computer Science and Technology at **Tianjin University**, supervised by **[Prof. Wei Feng](https://cic.tju.edu.cn/faculty/fengwei/index.html)**. I am also fortunate to be working closely with **[Dr. Lianyu Hu](https://hulianyu.top/)**.
 
-My research interest includes neural machine translation and computer vision. I have published more than 100 papers at the top international AI conferences with total <a href='https://scholar.google.com/citations?user=DhtAFkwAAAAJ'>google scholar citations <strong><span id='total_cit'>260000+</span></strong></a> (You can also use google scholar badge <a href='https://scholar.google.com/citations?user=DhtAFkwAAAAJ'><img src="https://img.shields.io/endpoint?url={{ url | url_encode }}&logo=Google%20Scholar&labelColor=f6f6f6&color=9cf&style=flat&label=citations"></a>).
+# 💭 Research Interests
+My research interests focus on **Human Representation Modeling and Application**, including:
+* Human Encoding and Tokenization
+* Human Image and Video Synthesis
+* 3D Gaussians Avatar Reconstruction
 
+<!-- # 🔥 News
+- *2025.07*: &nbsp;🎉🎉 One paper (**GReg**) is accepted by **ICCV 2025**.
+- *2024.09*: &nbsp;🎉🎉 One paper (**DCP**) is accepted by **NeurIPS 2024**.
+- *2024.07*: &nbsp;🎉🎉 One paper (**PGMM**) is accepted by **ECCV 2024**. -->
 
-# 🔥 News
-- *2022.02*: &nbsp;🎉🎉 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
-- *2022.02*: &nbsp;🎉🎉 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
-
-# 📝 Publications 
-
-<div class='paper-box'><div class='paper-box-image'><div><div class="badge">CVPR 2016</div><img src='images/500x300.png' alt="sym" width="100%"></div></div>
+# 📝 Publications
+<div class='paper-box'><div class='paper-box-image'><div><div class="badge">ICCV 2025</div>
+<img src='images/pub_teasers/01_greg.png' alt="GReg" style="width: 100px; max-width: 100px; height: auto;">
+</div></div>
 <div class='paper-box-text' markdown="1">
 
-[Deep Residual Learning for Image Recognition](https://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf)
+GReg: Geometry-Aware Region Refinement for Sign Language Video Generation
 
-**Kaiming He**, Xiangyu Zhang, Shaoqing Ren, Jian Sun
+**Tongkai Shi**, L. Hu, F. Shang, L. Gao, W. Feng
 
-[**Project**](https://scholar.google.com/citations?view_op=view_citation&hl=zh-CN&user=DhtAFkwAAAAJ&citation_for_view=DhtAFkwAAAAJ:ALROH1vI_8AC) <strong><span class='show_paper_citations' data='DhtAFkwAAAAJ:ALROH1vI_8AC'></span></strong>
-- Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
+- Proposed **GReg**, a framework utilizing SMPL-X geometric priors (normal maps/gradients) to ensure anatomically plausible and temporally consistent video generation.
+- Designed **Regional Prior Generation (RPG)** to specifically refine high-frequency details in hands and faces.
+
 </div>
 </div>
 
-- [Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet](https://github.com), A, B, C, **CVPR 2020**
+<div class='paper-box'><div class='paper-box-image'><div><div class="badge">ECCV 2024</div>
+<img src='images/pub_teasers/00_pgmm.png' alt="PGMM" style="width: 100px; max-width: 100px; height: auto;">
+</div></div>
+<div class='paper-box-text' markdown="1">
 
-# 🎖 Honors and Awards
-- *2021.10* Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
-- *2021.09* Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
+Pose-guided Fine-grained Sign Language Video Generation
+
+**Tongkai Shi**, L. Hu, F. Shang, J. Feng, P. Liu, W. Feng
+
+- Developed **PGMM** to decouple structural motion from detail generation, using Cross-Attention to fuse pose and RGB modalities for high-fidelity synthesis.
+
+</div>
+</div>
+
+- Deep Correlated Prompting for Visual Recognition with Missing Modalities, L. Hu, **Tongkai Shi**, W. Feng, F. Shang, L. Wan, **NeurIPS 2024**
+    - Proposed Deep Correlated Prompting (DCP) leveraging hierarchical semantics to improve robustness against missing-modality scenarios in large multimodal models.
+
+</div>
+</div>
 
 # 📖 Educations
-- *2019.06 - 2022.04 (now)*, Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
-- *2015.09 - 2019.06*, Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
-
-# 💬 Invited Talks
-- *2021.06*, Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet. 
-- *2021.03*, Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ornare aliquet ipsum, ac tempus justo dapibus sit amet.  \| [\[video\]](https://github.com/)
+- *2023.09 - 2026.06 (Expected)*, M.Sc. in Computer Science and Technology, **Tianjin University**. (Supervisor: Prof. Wei Feng)
+- *2019.09 - 2023.06*, B.Sc. in Computer Science and Technology, **Tianjin University**.
 
 # 💻 Internships
-- *2019.05 - 2020.02*, [Lorem](https://github.com/), China.
+- *2025.07 - 2025.11*, [Kuaishou Technology](https://www.kuaishou.com/en), Hangzhou, China.
+
+<!-- # 🎖 Honors and Awards -->
+<!-- - *2023*: Huawei "Intelligent Base" Scholarship -->
+
+
+
+<script type="text/javascript" src="//rf.revolvermaps.com/0/0/6.js?i=54e0ojatafc&amp;m=7&amp;c=e63100&amp;cr1=ffffff&amp;f=arial&amp;l=0&amp;bv=90&amp;lx=-420&amp;ly=420&amp;hi=20&amp;he=7&amp;hc=a8ddff&amp;rs=80" async="async"></script>
