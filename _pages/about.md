@@ -117,7 +117,7 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 
 # 💻 Internships
-- *2025.07 - 2025.11*, [Kuaishou Technology](https://www.kuaishou.com/en), Hangzhou, China.
+- *2025.07 - 2025.12*, [Kuaishou Technology](https://www.kuaishou.com/en), Hangzhou, China.
 
 <!-- # 🎖 Honors and Awards -->
 <!-- - *2023*: Huawei "Intelligent Base" Scholarship -->
