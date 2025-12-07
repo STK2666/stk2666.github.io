@@ -102,10 +102,6 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 
 
-
-
-
-
 # 📖 Educations
 - *2023.09 - 2026.06 (Expected)*, M.Sc. in Computer Science and Technology, **Tianjin University**. (Supervisor: Prof. Wei Feng)
 - *2019.09 - 2023.06*, B.Sc. in Computer Science and Technology, **Tianjin University**.
@@ -119,8 +115,21 @@ Pose-guided Fine-grained Sign Language Video Generation
 # 💻 Internships
 - *2025.07 - 2025.12*, [Kuaishou Technology](https://www.kuaishou.com/en), Hangzhou, China.
 
-<!-- # 🎖 Honors and Awards -->
-<!-- - *2023*: Huawei "Intelligent Base" Scholarship -->
+
+
+
+
+
+
+# 🎖 Honors and Awards
+- *2023*: Huawei Intelligent Base Scholarship
+- *2025*: First-Class Scholarship of Tianjin University
+- *2025*: BYD Scholarship
+
+
+
+
+
 
 <br>
 
