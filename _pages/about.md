@@ -17,7 +17,7 @@ redirect_from:
 
 <span class='anchor' id='about-me'></span>
 
-I am currently a M.Sc. student in Computer Science and Technology at **Tianjin University**, supervised by **[Prof. Wei Feng](https://cic.tju.edu.cn/faculty/fengwei/index.html)**. I am also fortunate to be working closely with **[Dr. Lianyu Hu](https://hulianyu.top/)**.
+I am currently a 1st-year Ph.D. student in the AI Thrust at **The Hong Kong University of Science and Technology (Guangzhou)**, supervised by **[Prof. Li Liu](https://liliu-avril.github.io/)**. I received my M.Sc. and B.Sc. in Computer Science and Technology from **Tianjin University**, where I was supervised by **[Prof. Wei Feng](https://cic.tju.edu.cn/faculty/fengwei/index.html)** during my master's studies. I am grateful to have worked with **[Dr. Lianyu Hu](https://hulianyu.top/)**.
 
 
 
@@ -27,10 +27,10 @@ I am currently a M.Sc. student in Computer Science and Technology at **Tianjin U
 
 
 # 💭 Research Interests
-My research interests focus on **Human Representation Modeling and Application**, including:
-* Human Encoding and Tokenization
-* Human Image and Video Synthesis
-* 3D Gaussians Avatar Reconstruction
+My research focuses on **Human Representation**, from controllable visual synthesis to expressive human behavior. My current interests include:
+* Joint Audio-Visual Generation
+* Embodied Response Generation (Body, Hand and Face Motion with Speech)
+* 3D Human Reconstruction and Animation
 
 
 
@@ -102,9 +102,10 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 
 
-# 📖 Educations
-- *2023.09 - 2026.06 (Expected)*, M.Sc. in Computer Science and Technology, **Tianjin University**. (Supervisor: Prof. Wei Feng)
-- *2019.09 - 2023.06*, B.Sc. in Computer Science and Technology, **Tianjin University**.
+# 🎓 Educations
+- *2026.09 - Present*, Ph.D. in Artificial Intelligence, **The Hong Kong University of Science and Technology (Guangzhou)**&nbsp;<img src="{{ '/images/hkust-emblem.png' | relative_url }}" alt="" class="education-emblem" style="display:inline-block;width:0.8lh;height:0.8lh;object-fit:contain;vertical-align:-0.3em;margin:0;padding:0;border:0;">. (Supervisor: Prof. Li Liu)
+- *2023.09 - 2026.06*, M.Sc. in Computer Science and Technology, **Tianjin University**&nbsp;<img src="{{ '/images/tju-emblem.png' | relative_url }}" alt="" class="education-emblem" style="display:inline-block;width:0.8lh;height:0.8lh;object-fit:contain;vertical-align:-0.3em;margin:0;padding:0;border:0;">. (Supervisor: Prof. Wei Feng)
+- *2019.09 - 2023.06*, B.Sc. in Computer Science and Technology, **Tianjin University**&nbsp;<img src="{{ '/images/tju-emblem.png' | relative_url }}" alt="" class="education-emblem" style="display:inline-block;width:0.8lh;height:0.8lh;object-fit:contain;vertical-align:-0.3em;margin:0;padding:0;border:0;">.
 
 
 
@@ -113,7 +114,7 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 
 # 💻 Internships
-- *2025.07 - 2025.12*, [Kuaishou Technology](https://www.kuaishou.com/en), Hangzhou, China.
+- *2025.07 - 2025.11*, [Kuaishou Technology](https://www.kuaishou.com/en), Hangzhou, China.
 
 
 
@@ -133,6 +134,7 @@ Pose-guided Fine-grained Sign Language Video Generation
 
 <br>
 
-<div style="width: 20%; margin: 0 auto; text-align: center;">
-    <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=UaO9kwVJU5OVMBeAihBYjSoeB13gU_rSGdZIafFlWsA&cl=ffffff&w=a"></script>
+<div style="width:100%;max-width:280px;margin:0 auto;text-align:center;">
+    <a href="https://www.visitordots.com/details/vd_d0dHkdbepGhDzopKPsRIM-Uz"><img src="https://map.visitordots.com/vmap/219887808806199.png" alt="Visitor map" style="display:block;width:100%;height:auto;border:0"></a>
+    <a href="https://www.visitordots.com/create?widget=map&amp;theme_key=white-gray-dots&amp;dot_color=visitor-dots&amp;dot_shape=circle&amp;flag_theme=light&amp;columns=4&amp;maximum=24&amp;layout=feature&amp;from=widget" style="font-size:11px;">Get a free visitor map like this</a>
 </div>

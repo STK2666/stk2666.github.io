@@ -7,7 +7,7 @@
 
 # Site Settings
 title                    : "Tongkai Shi (石同凯)"
-description              : "M.Sc. Student at Tianjin University. Research interests include Human Representation Modeling, Human Encoding, and Image/Video Synthesis."
+description              : "Human Representation, 2D/3D Human Avatars, and Embodied Responses."
 repository               : "stk2666/stk2666.github.io"
 google_scholar_stats_use_cdn : false
 
@@ -21,10 +21,10 @@ baidu_site_verification  :  # get baidu_site_verification from https://ziyuan.ba
 
 # Site Author
 author:
-  name             : "Tongkai Shi"
-  avatar           : "images/avatar.png"
-  bio              : "Tianjin University"
-  location         : "Tianjin, China"
+  name             : "Tongkai Shi · 石同凯"
+  avatar           : "images/profile-2026-ab.png"
+  bio              : "Ph.D. Student · AI Thrust · HKUST(GZ)"
+  location         : "Guangzhou, China"
   employer         :
   pubmed           :
   googlescholar    : "https://scholar.google.com/citations?user=YqWiWT8AAAAJ" # 请替换为您真实的 ID
