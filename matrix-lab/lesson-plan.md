@@ -1,3 +1,9 @@
+---
+layout: null
+sitemap: false
+---
+<meta name="robots" content="noindex,nofollow"/>
+
 # UFUG2102 First Tutorial
 ## Meet Matrices: Representations and Applications
 

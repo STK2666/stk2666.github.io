@@ -1,3 +1,9 @@
+---
+layout: null
+sitemap: false
+---
+<meta name="robots" content="noindex,nofollow"/>
+
 # Unitree G1 Description (MJCF)
 
 > [!IMPORTANT]
