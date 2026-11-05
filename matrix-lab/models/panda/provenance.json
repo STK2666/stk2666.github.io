@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/google-deepmind/mujoco_menagerie",
+  "commit": "98a70c569c4c1b6da467a20012f766ee1f8dc521",
+  "source_directory": "franka_emika_panda",
+  "license": "Apache-2.0",
+  "changes": "Visual OBJ meshes repackaged into GLB. Original body frames, geometry and material colors retained; teaching application applies kinematic joint rotations. No physics simulation."
+}

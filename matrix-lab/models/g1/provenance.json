@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/google-deepmind/mujoco_menagerie",
+  "commit": "98a70c569c4c1b6da467a20012f766ee1f8dc521",
+  "source_directory": "unitree_g1",
+  "license": "BSD-3-Clause",
+  "changes": "Original STL visual meshes repackaged as GLB; source body frames, geom offsets and joint axes retained. Kinematic visualization only; floating base manipulated as a rigid transform. Visual mesh faces reduced to 30% with Blender 5.0 Decimate for web delivery; body transforms and joint frames unchanged, verified against source kinematics."
+}
