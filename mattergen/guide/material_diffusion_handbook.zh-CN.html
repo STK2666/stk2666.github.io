@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>如何用扩散模型生成晶体材料？</title>
+<link rel="stylesheet" href="assets/handbook.css">
+</head>
+<body>
+<header>
+<div class="handbook-nav">
+<a href="../index.html">← 交互预演</a>
+<span><a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/material_diffusion_handbook.zh-CN.md">Markdown 原稿（课程仓库，需权限）</a>　·　<a href="../analysis/experiment_index.csv">样本索引</a></span>
+</div>
+<h1>如何用扩散模型生成晶体材料？</h1>
+</header>
+<div class="layout">
+<nav id="TOC" aria-label="手册目录"><strong>目录</strong><ul>
+<li><a href="#第一幕-晶体表示与网络" id="toc-第一幕-晶体表示与网络">第一幕　晶体表示与网络</a>
+<ul>
+<li><a href="#计算机怎样表示一块周期性晶体" id="toc-计算机怎样表示一块周期性晶体">1　计算机怎样表示一块周期性晶体？</a></li>
+<li><a href="#为什么选周期几何图网络一次前向发生什么" id="toc-为什么选周期几何图网络一次前向发生什么">2　为什么选周期几何图网络，一次前向发生什么？</a></li>
+</ul></li>
+<li><a href="#第二幕-生成目标与模型选择" id="toc-第二幕-生成目标与模型选择">第二幕　生成目标与模型选择</a>
+<ul>
+<li><a href="#给材料模型一个提示我们究竟规定了什么" id="toc-给材料模型一个提示我们究竟规定了什么">3　给材料模型一个“提示”，我们究竟规定了什么？</a></li>
+<li><a href="#这种任务应该选择什么扩散模型" id="toc-这种任务应该选择什么扩散模型">4　这种任务应该选择什么扩散模型？</a></li>
+</ul></li>
+<li><a href="#第三幕-从一次真实生成到三类推理干预" id="toc-第三幕-从一次真实生成到三类推理干预">第三幕　从一次真实生成到三类推理干预</a>
+<ul>
+<li><a href="#网络如何从训练数据学到反向更新再从随机状态生成" id="toc-网络如何从训练数据学到反向更新再从随机状态生成">5　网络如何从训练数据学到反向更新，再从随机状态生成？</a></li>
+<li><a href="#同一去噪器为什么会走出不同轨迹" id="toc-同一去噪器为什么会走出不同轨迹">6　同一去噪器为什么会走出不同轨迹？</a></li>
+<li><a href="#固定了目标怎样调整它对同一步更新的影响" id="toc-固定了目标怎样调整它对同一步更新的影响">7　固定了目标，怎样调整它对同一步更新的影响？</a></li>
+</ul></li>
+<li><a href="#附录-a-怎样复核站点重排与平移探针" id="toc-附录-a-怎样复核站点重排与平移探针">附录 A　怎样复核站点重排与平移探针？</a></li>
+<li><a href="#附录-b-从一个结果追到原始文件" id="toc-附录-b-从一个结果追到原始文件">附录 B　从一个结果追到原始文件</a></li>
+</ul></nav>
+<main><p><strong>INFH5000 · Member 2 研究手册 · 2026-11-18</strong></p>
+<p><strong>研究对象</strong>　周期性无机晶体、MatterGen 冻结权重、未经弛豫的生成候选。</p>
+<p><strong>交付</strong>　可解码的晶体结构、去噪轨迹、条件和求解器的配对实验，以及逐样本来源记录。</p>
+<p>材料发现要做两件不同的事。给定一个结构，可以估计它的能量或受扰动后的响应；给定一个设计要求，则要提出值得检验的结构。后一项任务有许多可能的解：同一种元素组合容许不同配比，同一个化学式也可以有不同的原子排列。本项目用一个生成模型给出这些候选，并追踪每个候选从随机状态到结构文件的过程。后续的模型预测、第一性原理计算与实验分别可以提供有关性质、稳定性和可实现性的证据。<a href="https://www.nature.com/articles/s41586-025-08628-5">MatterGen 论文</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/handoff.md">项目交接说明（课程仓库，需权限）</a></p>
+<p><strong>阅读路径</strong>　第一幕解决“计算机怎样表示和读取晶体”，第二幕解决“设计要求与数据空间决定怎样的生成问题”，第三幕沿一次真实推理考察“怎样生成、怎样干预、怎样检验输出”。页面使用的图、曲线和表格可以通过本手册的证据链接复查。<a href="../index.html">离线交互页面</a> · <a href="../analysis/experiment_index.csv">逐候选实验索引</a></p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>记录集</th>
+<th>统计单位</th>
+<th>可以回答的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>无条件基础批次</td>
+<td>8 个 CUDA 样本；另有 1 个 Apple MPS 样本单列</td>
+<td>一个完整候选如何生成、导出和交接？</td>
+</tr>
+<tr>
+<td>配对采样器</td>
+<td>原批 3 个初态 × 3 种方法；另有 3 个固定为 8 位点的初态 × 3 种方法，共 18 个终态</td>
+<td>固定起点时求解器改变什么？固定求解器与后续随机种子时，先验几何怎样影响结果？</td>
+</tr>
+<tr>
+<td>化学体系与 CFG</td>
+<td>2 个种子 × 2 个目标 × 7 档引导 = 28 个终态；另有 4 个关闭目标元素筛选的终态</td>
+<td>模型对元素集合、比例和引导强度分别有什么响应？</td>
+</tr>
+<tr>
+<td>空间群条件</td>
+<td>4 个初态 × 3 个实验分支 = 12 个终态</td>
+<td>请求一个对称群后，从导出几何能测得哪个群？</td>
+</tr>
+</tbody>
+</table></div>
+<p>基础运行和补充实验合计保存 <strong>71 个生成端点</strong>。其中 62 个属于冻结权重的补充对照。多个端点会共享同一个初态或同一个 seed，部分端点的化学式相同。文中按实验分支给分母。张量探针是对一个既有候选的单步网络计算，另行记录。</p>
+<section id="第一幕-晶体表示与网络" class="level2">
+<h2>第一幕　晶体表示与网络</h2>
+<p><a id="representation"></a></p>
+<section id="计算机怎样表示一块周期性晶体" class="level3">
+<h3>1　计算机怎样表示一块周期性晶体？</h3>
+<section id="从重复结构到三个变量" class="level4">
+<h4>从重复结构到三个变量</h4>
+<p>考虑向三个方向周期延拓的理想晶体。我们选取一个重复单元，记该晶胞内有 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> 个站点。<strong>晶格</strong>定义如何平移重复单元，<strong>基元</strong>定义每个重复单元中有哪些元素、位于哪里。一个三维点集仅给出一次摆放的坐标；加上周期晶格以后，才能确定跨晶胞的距离、邻居与整体对称性。当前模型面向小晶胞周期结构；材料的宏观形状、晶粒和缺陷需要各自的表征。<a href="https://huggingface.co/microsoft/mattergen/blob/5244495dd9a979ff71abc7548a0b14b9deb0069a/README.md">官方权重模型卡</a></p>
+<p>写 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>F</mi><mo>,</mo><mi>L</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">X=(A,F,L)</annotation></semantics></math>。<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mi>i</mi></msub><annotation encoding="application/x-tex">A_i</annotation></semantics></math> 为第 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math> 个站点的一基原子序数。<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>i</mi></msub><mo>∈</mo><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><msup><mo stretchy="false" form="postfix">)</mo><mn>3</mn></msup></mrow><annotation encoding="application/x-tex">F_i\in[0,1)^3</annotation></semantics></math> 为无量纲的分数坐标。<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>∈</mo><msup><mi mathvariant="double-struck">ℝ</mi><mrow><mn>3</mn><mo>×</mo><mn>3</mn></mrow></msup></mrow><annotation encoding="application/x-tex">L\in\mathbb R^{3\times3}</annotation></semantics></math> 的三行分别为三个晶格向量，以 Å 为单位。该站点连同全部周期像的笛卡尔位置为</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>r</mi><mrow><mi>i</mi><mo>,</mo><mi>k</mi></mrow></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>F</mi><mi>i</mi></msub><mo>+</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo><mi>L</mi><mo>,</mo><mspace width="2.0em"></mspace><mi>k</mi><mo>∈</mo><msup><mi mathvariant="double-struck">ℤ</mi><mn>3</mn></msup><mi>.</mi></mrow><annotation encoding="application/x-tex">
+r_{i,k}=(F_i+k)L,\qquad k\in\mathbb Z^3 .
+</annotation></semantics></math></p>
+<p>原胞内位置 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>R</mi><mo>=</mo><mi>F</mi><mi>L</mi></mrow><annotation encoding="application/x-tex">R=FL</annotation></semantics></math>，体积 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mo>=</mo><mo stretchy="false" form="prefix">|</mo><mrow><mi mathvariant="normal">det</mi><mo>&#8289;</mo></mrow><mi>L</mi><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">V=|\det L|</annotation></semantics></math>，每原子体积为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mi>/</mi><mi>n</mi></mrow><annotation encoding="application/x-tex">V/n</annotation></semantics></math>。这三个公式分别决定前端怎样画点、怎样显示尺寸、怎样跨不同站点数比较几何尺度。例如坐标从 0.99 变到 0.01，有可能只沿第一条晶格方向跨过 0.02 个周期。观察跨界动画时应同时查看晶胞；在斜晶胞里，最短实空间距离还需用实际晶格搜索周期像。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/generator.py">读写及坐标实现</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/handoff.md">每帧数据约定（课程仓库，需权限）</a></p>
+</section>
+<section id="cif-和张量怎样对应" class="level4">
+<h4>CIF 和张量怎样对应？</h4>
+<p>训练数据由 Materials Project 与 Alexandria 筛选得到，base 使用的缓存名为 Alex-MP-20，训练范围为至多 20 个站点的原胞。官方预处理从 CIF 读晶格、站点和元素，取原胞并进行 Niggli 约化，统一部分晶胞基底选择，再将分数坐标取模 1。base 的变换将行向量晶格替换为极分解中的对称因子 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>L</mi><msup><mi>L</mi><mi mathvariant="sans-serif">𝖳</mi></msup><msup><mo stretchy="false" form="postfix">)</mo><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">(LL^\mathsf{T})^{1/2}</annotation></semantics></math>，保持行向量的 Gram 矩阵，因而保留长度、夹角和体积。原胞化、约化可能改换基底及原子顺序。比较同一结构的两个文件时，要连同晶格和周期像一起核对。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/data/dataset.py">官方数据读取</a> · <a href="mattergen_representation_architecture.zh-CN.html">原始数据处理与逐字段示例</a> · <a href="https://huggingface.co/microsoft/mattergen/blob/5244495dd9a979ff71abc7548a0b14b9deb0069a/README.md">训练数据说明</a></p>
+<p>训练和推理可使用同一种 <code>ChemGraph</code> 批表示。设一批有 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math> 个晶体、各有 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mi>b</mi></msub><annotation encoding="application/x-tex">n_b</annotation></semantics></math> 个站点，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><msub><mo>∑</mo><mi>b</mi></msub><msub><mi>n</mi><mi>b</mi></msub></mrow><annotation encoding="application/x-tex">N=\sum_b n_b</annotation></semantics></math>。站点级数据按第一维拼接，晶体级数据按晶胞堆叠。</p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>字段</th>
+<th>形状、类型和单位</th>
+<th>含义与边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>atomic_numbers</code></td>
+<td><code>[N]</code>，int64</td>
+<td>干净标签为原子序数；该模型的带噪数据用 101 表示 MASK。模型内部类别，从 0 编号。</td>
+</tr>
+<tr>
+<td><code>pos</code></td>
+<td><code>[N,3]</code>，float32，无量纲</td>
+<td>分数坐标，沿每个轴以 1 为周期。</td>
+</tr>
+<tr>
+<td><code>cell</code></td>
+<td><code>[B,3,3]</code>，float32，Å</td>
+<td>每个晶胞的三行晶格向量。</td>
+</tr>
+<tr>
+<td><code>num_atoms</code>、<code>batch</code>、<code>ptr</code></td>
+<td><code>[B]</code>、<code>[N]</code>、<code>[B+1]</code>，整数</td>
+<td>位点数、站点到批内晶体的索引、晶体切片边界。两个晶体有 3 和 2 个站点时，<code>ptr=[0,3,5]</code>。</td>
+</tr>
+<tr>
+<td><code>t</code></td>
+<td><code>[B]</code>，浮点，无量纲</td>
+<td>每个样本的噪声时刻，网络调用时单独传入，向对应节点广播。</td>
+</tr>
+<tr>
+<td>性质条件</td>
+<td>晶胞级字符串、整数标识或浮点字段</td>
+<td>随权重分别解释为元素集合、空间群和带单位的数值目标。</td>
+</tr>
+<tr>
+<td>来源标识</td>
+<td><code>material_id</code>、<code>candidate_id</code>、seed、版本和哈希</td>
+<td>前者来自数据来源，后者用于本组实验追踪。推理中只有模型支持且显式传入的条件参与预测。</td>
+</tr>
+</tbody>
+</table></div>
+<p>为什么要转成批张量？网络要同时对大量不同站点数的晶体进行查表、邻居聚合与梯度计算。原子数可以不同，只要每条边的两个端点属于同一晶体，聚合就能按 <code>batch</code> 还原到各自单元。<strong>生成时没有目标晶体的 CIF。</strong> base 先从内置 ALEX_MP_20 经验分布抽 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>，用该形状创建占位字段，随后由三个先验填入初态。<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> 在一条生成轨迹中固定。<a href="mattergen_representation_architecture.zh-CN.html">批数据与入口</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/checkpoints/mattergen_base/config.yaml">最小生成配置</a></p>
+</section>
+<section id="把一个实数算回文件中的坐标" class="level4">
+<h4>把一个实数算回文件中的坐标</h4>
+<p>以基础批次的 Cu₂Pd 为单位核对例。CIF 中首个 Cu 的分数坐标约 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>0.662126</mn><mo>,</mo><mn>0.969702</mn><mo>,</mo><mn>0.250248</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(0.662126,0.969702,0.250248)</annotation></semantics></math>。配合独立最终 EXTXYZ 的晶格行向量 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>2.824153</mn><mo>,</mo><mn>0</mn><mo>,</mo><mi>−</mi><mn>0.897811</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(2.824153,0,-0.897811)</annotation></semantics></math>、<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mn>0.284226</mn><mo>,</mo><mn>2.809208</mn><mo>,</mo><mi>−</mi><mn>0.890616</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(-0.284226,2.809208,-0.890616)</annotation></semantics></math>、<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mn>0</mn><mo>,</mo><mn>4.917601</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(0,0,4.917601)</annotation></semantics></math> Å，算得 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1.594332</mn><mo>,</mo><mn>2.724094</mn><mo>,</mo><mi>−</mi><mn>0.227476</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">r=(1.594332,2.724094,-0.227476)</annotation></semantics></math> Å，晶胞体积为 39.01445 Å³。给定晶格和同一站点，就能往返于两种坐标表示。<a href="../deliverables/tk-cuda-seed48/final.cif">最终 CIF</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/deliverables/tk-cuda-seed48/raw/generated_crystals.extxyz">最终 EXTXYZ（课程仓库，需权限）</a></p>
+<p><a id="backbone"></a></p>
+</section>
+</section>
+<section id="为什么选周期几何图网络一次前向发生什么" class="level3">
+<h3>2　为什么选周期几何图网络，一次前向发生什么？</h3>
+<p>上述 Cu 和 Pd 在中央晶胞内的直线距离为 4.1330 Å。给 Pd 加晶格平移 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mn>1</mn><mo>,</mo><mn>0</mn><mo>,</mo><mi>−</mi><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(-1,0,-1)</annotation></semantics></math>，得到 2.6117 Å 的另一条位移。神经网络若仅比较中央三个点，会漏掉跨边界的局部环境。MatterGen 在当前坐标和晶格上动态构造 <strong>周期近邻图</strong>，图边对应满足近邻准则的一对周期像，化学成键需要额外判断。把一条边写为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo>,</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(i,j,k)</annotation></semantics></math>，它的相对位移为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>i</mi><mi>j</mi><mo>,</mo><mi>k</mi></mrow></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>F</mi><mi>j</mi></msub><mo>+</mo><mi>k</mi><mo>−</mo><msub><mi>F</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">d_{ij,k}=(F_j+k-F_i)L</annotation></semantics></math>。同一对站点编号可以因像偏移不同出现多次。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/deliverables/tk-cuda-seed48/raw/generated_crystals.extxyz">实际站点数据（课程仓库，需权限）</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/gemnet/gemnet.py">周期图实现</a></p>
+<p><strong>骨干是 GemNet-T 几何消息传递网络。</strong> 这里有四种决定预测的操作。</p>
+<ol type="1">
+<li><strong>建图。</strong> 将当前分数坐标变为笛卡尔点，结合晶格搜索周期像。base 截断半径为 7 Å，最大近邻数配置为 50，每个晶格方向最多搜索 5 级周期像。图存 <code>edge_index[2,E]</code> 与整数像偏移 <code>to_jimages[E,3]</code>。当前几何更新后，下次前向会重新构图。</li>
+<li><strong>嵌入。</strong> 元素及 MASK 经查表得到 512 维节点向量。每个晶胞的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>t</mi><annotation encoding="application/x-tex">t</annotation></semantics></math> 经 256 对正弦、余弦编码成 512 维，向站点广播，与元素向量拼接后投影为节点隐藏态。空间位置通过相对边向量、距离和角度进入消息传递。径向基展开的默认数目为 128，角向基为 7；边方向与三条晶格轴的夹角还提供晶胞几何信息。</li>
+<li><strong>传递消息。</strong> 对共享中心的两条边构造三元组。边长描述“隔多远”，夹角描述“从哪两个方向靠近”。四个交互块更新 512 维边和节点特征，并汇集多层读出。即使两个局部环境的原子种类和若干边长相似，三元组仍可以帮助区分排列方式。</li>
+<li><strong>读出。</strong> 元素头从节点得 <code>[N,101]</code> 个干净类别 logits；位置头沿有向边以学到的标量加权单位方向，按站点聚合三维向量，换算到分数坐标分支；晶格头汇集与方向外积 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>u</mi><msup><mi>u</mi><mi mathvariant="sans-serif">𝖳</mi></msup></mrow><annotation encoding="application/x-tex">uu^\mathsf T</annotation></semantics></math> 相关的张量，得到对称 <code>[B,3,3]</code> 输出。后两项的统计含义是带噪状态的去噪信号。官方骨干还返回名为 <code>energy</code> 的量，但生成器从元素、位置、晶格三项读出构造候选。报告该材料的实际能量、力或应力需要专门的预测器或物理计算。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/checkpoints/mattergen_base/config.yaml">固定模型配置</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/gemnet/gemnet.py">GemNet-T 实现</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/denoiser.py">去噪输出变换</a></li>
+</ol>
+<p><strong>哪些对称性有意义？</strong> 调换站点的存储顺序应只调换站点级预测，对同一晶胞的整体预期保持一致。全体站点加上共同平移，边的相对位移保持不变。对空间作整体正交旋转，边长和夹角不变，沿边单位向量的笛卡尔向量读出随坐标轴旋转，方向外积按二阶张量变换。模型还在规范化的对称晶格表示中工作。近邻筛选的边界、等距排序和浮点归约顺序在数值层面均可能引入微小差异。以下探针给出置换与平移的单样本检查；旋转一项描述网络的几何构造。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/gemnet/gemnet.py">几何边与输出头</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/denoiser.py">张量转换</a></p>
+<p><strong>本地 CPU 实测。</strong> 对上述真实 CIF 重走官方预处理，在 <code>t=0.4</code>、探针 seed=17 下加噪，以同一冻结权重分别输入原结构、按 <code>[2,0,1]</code> 重排的结构、全体分数坐标加 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>0.25</mn><mo>,</mo><mn>0.375</mn><mo>,</mo><mn>0.625</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(0.25,0.375,0.625)</annotation></semantics></math> 再取模 1 的结构。对置换结果按对应站点比较，晶格直接比较。列中数值为所有分量的最大绝对差，单位分别为原始 logits 或训练参数化下的原始网络输出单位。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>检查</th>
+<th style="text-align: right;">元素头 <code>[3,101]</code></th>
+<th style="text-align: right;">位置头 <code>[3,3]</code></th>
+<th style="text-align: right;">晶格头 <code>[1,3,3]</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>重排站点</td>
+<td style="text-align: right;">3.05 × 10⁻⁵</td>
+<td style="text-align: right;">3.48 × 10⁻⁷</td>
+<td style="text-align: right;">7.15 × 10⁻⁷</td>
+</tr>
+<tr>
+<td>平移并周期包裹</td>
+<td style="text-align: right;">2.67 × 10⁻⁵</td>
+<td style="text-align: right;">1.79 × 10⁻⁶</td>
+<td style="text-align: right;">3.19 × 10⁻⁶</td>
+</tr>
+</tbody>
+</table></div>
+<p>本例三个输出量级的最大绝对值约为 22.6、0.871 和 1.48；数值偏差远小于对应输出量级。这项检查能验证当前读取、构图与单步前向对两个变换的响应。它只涉及一个带噪输入。复现代码见附录 A，原始文件含实际带噪输入、环境与所有输出。<a href="../analysis/architecture_probe.json">逐张量探针记录</a></p>
+</section>
+</section>
+<section id="第二幕-生成目标与模型选择" class="level2">
+<h2>第二幕　生成目标与模型选择</h2>
+<p><a id="conditions"></a></p>
+<section id="给材料模型一个提示我们究竟规定了什么" class="level3">
+<h3>3　给材料模型一个“提示”，我们究竟规定了什么？</h3>
+<p>文生图中的一句提示可以指定“雪地里一辆红色汽车”，而视角、积雪形状与背景细节仍有多种可能。晶体设计同样留有自由度，条件可以有很明确的数学内容。写 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math> 为要求，本项目在给定 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> 后希望从 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mi>θ</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>F</mi><mo>,</mo><mi>L</mi><mo>∣</mo><mi>n</mi><mo>,</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">p_\theta(A,F,L\mid n,c)</annotation></semantics></math> 采出候选；无性质条件时取 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mi>θ</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>F</mi><mo>,</mo><mi>L</mi><mo>∣</mo><mi>n</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">p_\theta(A,F,L\mid n)</annotation></semantics></math>。本轮实验从原有站点数分布取 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>，按实验设计保持配对。不同条件权重支持不同字段，条件的类型也决定应怎样独立检验输出。</p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>要求</th>
+<th>送入网络的表示</th>
+<th>仍由模型决定的量</th>
+<th>可用于核验的观测</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>无条件 base</td>
+<td>噪声时刻与当前晶体；base 的性质嵌入字典为空</td>
+<td>元素、配比、坐标、晶格</td>
+<td>源文件能否解码，生成过程中各字段怎样变化</td>
+</tr>
+<tr>
+<td>“Mg–O 化学体系”</td>
+<td><code>chemical_system</code> 字符串拆成元素集合，在长度 101 的向量中令 <code>Z=12,8</code> 的位置取 1，经线性层得 512 维条件向量</td>
+<td>Mg/O 位点数、排列、晶格</td>
+<td>最终元素集合是否恰等于 {Mg,O}，氧位点比例是多少</td>
+</tr>
+<tr>
+<td>“第 225 号空间群”</td>
+<td>国际空间群号 1–230 减 1 后索引 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>230</mn><mo>×</mo><mn>512</mn></mrow><annotation encoding="application/x-tex">230\times512</annotation></semantics></math> 的学习表</td>
+<td>元素、组成、坐标、晶格</td>
+<td>按指定距离和角度容差从实际几何重新识别的群号</td>
+</tr>
+<tr>
+<td>“目标带隙”或“目标体模量”</td>
+<td>对应权重采用训练统计量标准化标量并作正弦余弦编码；体模量权重还先取 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mrow><mi mathvariant="normal">log</mi><mo>&#8289;</mo></mrow><mn>10</mn></msub><annotation encoding="application/x-tex">\log_{10}</annotation></semantics></math></td>
+<td>满足要求的组成与几何</td>
+<td>用独立性质模型或物理参考计算实得值及误差；本轮只说明这个接口</td>
+</tr>
+<tr>
+<td>“恰好 2 Cu、1 Pd”</td>
+<td>晶体结构预测（CSP）可以直接给定全部元素计数与标签</td>
+<td>位置和晶格</td>
+<td>已知组成下的结构与几何。官方该入口要求兼容的 CSP 权重与配置</td>
+</tr>
+</tbody>
+</table></div>
+<p>化学体系的目标向量按原子序数索引；去噪头的零基 logits 用 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Z-1</annotation></semantics></math> 索引。程序会转换两者之间的偏移。条件权重在每个交互块入口把该晶胞的条件向量广播给站点，将其与站点隐藏态拼接，经 MLP 和混合层得到残差。训练开始时混合层可以零初始化；最终使用的是已经学到条件响应的官方权重。条件 dropout 使一个条件模型可以在同一带噪输入上给出有条件和无条件输出。<strong>第 7 节将用这两个输出定义 CFG。</strong> <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/property_embeddings.py">条件编码源码</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/gemnet/gemnet_ctrl.py">逐层注入</a> · <a href="mattergen_representation_architecture.zh-CN.html">条件权重与 CSP 的实现区别</a></p>
+<p>化学体系入口还有一道直接施加于输出的约束：有条件分支将集合外元素的 logits 加上约 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><msup><mn>10</mn><mn>10</mn></msup></mrow><annotation encoding="application/x-tex">-10^{10}</annotation></semantics></math>，同时保留全局支持元素的筛选。因此“目标中两种元素都出现”仍然需要统计，“集合外元素受到抑制”则有代码层面的解释。空间群条件主要通过已学嵌入影响生成，输出坐标没有被强制投影到某组 Wyckoff 位置。两类条件都能在网页上选择，背后的保证不同。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/scripts/generate.py">官方生成入口</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/denoiser.py">禁止元素的 logit 操作</a> · <a href="training_free_control.zh-CN.html">条件实验</a></p>
+<p><a id="design-space"></a></p>
+</section>
+<section id="这种任务应该选择什么扩散模型" class="level3">
+<h3>4　这种任务应该选择什么扩散模型？</h3>
+<p>先把“生成什么”与“怎样分解生成”作为两个可组合的问题。图像和晶体都有空间结构，但常见图像潜变量的每个分量可以作连续插值；把 Cu 的类别编号与 Pd 的编号先平均，并不会给出一个有物理意义的“中间元素”。文本和元素都是类别，晶体中负责解释一个元素位点的上下文却还包含连续变化的邻居几何。这两点一起决定了 MatterGen 的联合生成形式。<a href="https://arxiv.org/abs/2112.10752">潜空间图像扩散</a> · <a href="https://arxiv.org/abs/2107.03006">离散扩散</a> · <a href="https://www.nature.com/articles/s41586-025-08628-5">MatterGen</a></p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>例子</th>
+<th>条件和目标</th>
+<th>状态与生成分解</th>
+<th>网络学习和采样时更新的量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>连续潜空间图像扩散</td>
+<td>文本等条件；生成与描述相符的图像</td>
+<td>固定形状的连续潜变量，通常整幅潜变量一起去噪</td>
+<td>以高斯前向扰动构造目标，可采用噪声或 score 参数化，最后解码为像素</td>
+</tr>
+<tr>
+<td>连续 flow matching</td>
+<td>条件可有可无；采样连续对象</td>
+<td>预先设计连接基础分布与数据分布的条件路径，状态可以是整个样本</td>
+<td>回归该路径的速度场，再用 ODE 积分。推理时用 ODE 的模型也可以由 score 训练得到，需查看实际训练目标。<a href="https://arxiv.org/abs/2210.02747">Flow Matching</a></td>
+</tr>
+<tr>
+<td>AR-DM / AR-FM</td>
+<td>已有 token 或块作为下一块的条件，还可附全局要求</td>
+<td>外层以 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math> 为生成序号，分解为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∏</mo><mi>k</mi></msub><mi>p</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><msub><mi>B</mi><mi>k</mi></msub></msub><mo>∣</mo><msub><mi>x</mi><msub><mi>B</mi><mrow><mo>&lt;</mo><mi>k</mi></mrow></msub></msub><mo>,</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\prod_k p(x_{B_k}\mid x_{B_{&lt;k}},c)</annotation></semantics></math>；内层用 DM 或 FM 采样该连续块</td>
+<td>内层去噪或速度估计经过自己的时间 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>τ</mi><annotation encoding="application/x-tex">\tau</annotation></semantics></math>。Li 等采用逐 token diffusion loss，FELLE 采用 token 级 flow matching。外层的顺序与内层噪声时刻各自有定义。<a href="https://arxiv.org/abs/2406.11838">AR-DM</a> · <a href="https://arxiv.org/abs/2502.11128">AR-FM</a></td>
+</tr>
+<tr>
+<td>一般离散扩散（D3PM）</td>
+<td>可在类别数据上加入条件，生成类别配置</td>
+<td>用离散转移矩阵破坏标签，转移可允许替换为其他类别或进入吸收态</td>
+<td>预测干净类别或反向转移分布，由概率核抽样。<a href="https://arxiv.org/abs/2107.03006">D3PM</a></td>
+</tr>
+<tr>
+<td>掩码扩散（Masked Diffusion Model，MDM）</td>
+<td>通过其余上下文恢复未知标签</td>
+<td>离散扩散中特定的前向核将标签换成吸收态 MASK</td>
+<td>用分类分布恢复遮住的站点。扩散语言模型 LLaDA 将这一机制用于词元，其他域也可以使用。<a href="https://arxiv.org/abs/2406.04329">MDM</a> · <a href="https://arxiv.org/abs/2502.09992">LLaDA</a></td>
+</tr>
+<tr>
+<td>MatterGen</td>
+<td>无条件，或给定化学体系、空间群等；生成完整周期晶体候选</td>
+<td>一次给定站点数。元素在离散类别空间中，位置在三维环面上，规范化晶格为连续对称矩阵；共享时间，整个晶胞联合细化</td>
+<td>元素采用带吸收态的 D3PM，坐标为 wrapped VE，晶格为带尺度先验的 VP。GemNet-T 看见全部字段，输出元素 logits 和两类几何信号。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/checkpoints/mattergen_base/config.yaml">固定配置</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>从 EDM 的设计空间看，还要逐项给出<strong>加噪分布、训练时刻分布、输出参数化与损失权重、推理网格、数值求解器</strong>。MatterGen 的两个连续字段具有不同的前向路径；其中位置要处理周期包裹，晶格有随 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> 改变的中心和方差。训练给网络的输出目标是标准差缩放的 score，离散分支另有类别目标。供推理选择的 PC、祖先更新和概率流 Euler 作用于求解环节。这样才能回答一个具体问题：保留相同的已训练网络时，换哪些组件还能解释为一次可比较的干预？<a href="https://arxiv.org/abs/2206.00364">EDM</a> · <a href="diffusion_design_space.zh-CN.html">逐字段设计空间推导</a></p>
+</section>
+</section>
+<section id="第三幕-从一次真实生成到三类推理干预" class="level2">
+<h2>第三幕　从一次真实生成到三类推理干预</h2>
+<p><a id="diffusion"></a></p>
+<section id="网络如何从训练数据学到反向更新再从随机状态生成" class="level3">
+<h3>5　网络如何从训练数据学到反向更新，再从随机状态生成？</h3>
+<section id="三条正向路径" class="level4">
+<h4>5.1　三条正向路径</h4>
+<p>设 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>K</mi><mo>=</mo><mn>1000</mn></mrow><annotation encoding="application/x-tex">K=1000</annotation></semantics></math>，用 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>∈</mo><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">t\in[0,1]</annotation></semantics></math> 表示连续噪声时刻，用 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math> 表示离散掩码核的步数。训练随机抽样晶体及 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>t</mi><annotation encoding="application/x-tex">t</annotation></semantics></math>；当前版本默认对每一晶胞从 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><msup><mn>10</mn><mrow><mi>−</mi><mn>5</mn></mrow></msup><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">[10^{-5},1)</annotation></semantics></math> 均匀采 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>t</mi><annotation encoding="application/x-tex">t</annotation></semantics></math>。给定干净晶体、站点数和时刻后，分别扰动三类字段。离散前向边际取 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>j</mi><mo>=</mo><mo stretchy="false" form="prefix">⌊</mo><mn>999</mn><mi>t</mi><mo stretchy="false" form="postfix">⌋</mo><mo>+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">j=\lfloor999t\rfloor+1</annotation></semantics></math>。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/diffusion_module.py">多字段扩散模块</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/corruption/d3pm_corruption.py">类别时间与偏移</a></p>
+<p><strong>元素 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>。</strong> 由第 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math> 步向下一步时（<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>=</mo><mn>0</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>K</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">k=0,\ldots,K-1</annotation></semantics></math>），尚未遮住的位点以 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><mo>−</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">1/(K-k)</annotation></semantics></math> 的概率替换成 MASK，MASK 保持不变。累乘可得经过 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math> 步后原标签仍可见的概率 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>K</mi><mo>−</mo><mi>j</mi><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mi>K</mi></mrow><annotation encoding="application/x-tex">(K-j)/K</annotation></semantics></math>。因此前向的全 MASK 极限易于采样。这个概率是重复采样的边际规律；某个只有八个位点的单次轨迹可以在连续多个记录中有相同的掩码数。反向时先估计 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mi>θ</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>A</mi><mn>0</mn></msub><mo>∣</mo><msub><mi>A</mi><mi>j</mi></msub><mo>,</mo><msub><mi>F</mi><mi>t</mi></msub><mo>,</mo><msub><mi>L</mi><mi>t</mi></msub><mo>,</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">p_\theta(A_0\mid A_j,F_t,L_t,c)</annotation></semantics></math>，再将该净标签分布与离散状态和已知转移核结合，构造上一个类别状态的分布。原子类别和几何在这一步重新发生关联。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/d3pm/d3pm.py">掩码核</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/d3pm/d3pm_predictors_correctors.py">类别反向更新</a></p>
+<p><strong>分数坐标 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>F</mi><annotation encoding="application/x-tex">F</annotation></semantics></math>。</strong> 前向边际可以写成</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>t</mi></msub><mo>=</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><msub><mi>F</mi><mn>0</mn></msub><mo>+</mo><msub><mi>σ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mi>ϵ</mi><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo><mrow><mspace width="0.222em"></mspace><mrow><mi mathvariant="normal">mod</mi><mo>&#8289;</mo></mrow><mspace width="0.222em"></mspace><mn>1</mn></mrow><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>σ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msup><mi>n</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>3</mn></mrow></msup><mspace width="0.167em"></mspace><mn>0.01</mn><mo stretchy="false" form="prefix">(</mo><mn>5</mn><mi>/</mi><mn>0.01</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>t</mi></msup><mo>,</mo><mspace width="2.0em"></mspace><mi>ϵ</mi><mo>∼</mo><mi mathvariant="script">𝒩</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mi>I</mi><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
+F_t=\big(F_0+\sigma_n(t)\epsilon\big)\bmod1,\qquad
+\sigma_n(t)=n^{-1/3}\,0.01(5/0.01)^t,\qquad \epsilon\sim\mathcal N(0,I).
+</annotation></semantics></math></p>
+<p>幂律 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>n</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>3</mn></mrow></msup><annotation encoding="application/x-tex">n^{-1/3}</annotation></semantics></math> 用晶胞尺度随站点数的典型变化调整分数空间噪声。8 位点样本在高噪声端的标准差为 2.5 个周期，实际 prior 采高斯、缩放后取模。反向要估计带噪分布对<strong>分数坐标</strong>的 score。前向加噪的一次跨界可以对应多个周期像，训练目标按各可能位移的高斯权重求和。固定源码在每个轴取镜像偏移 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>3</mn><mo>,</mo><mi>…</mi><mo>,</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">-3,\ldots,3</annotation></semantics></math>，以有限项近似 wrapped-normal score，乘以当下标准差后与位置头做平方误差。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/diffusion/corruption.py">晶体 SDE</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/wrapped/wrapped_normal_loss.py">周期 score 与损失</a></p>
+<p><strong>晶格 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>。</strong> 令 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ρ</mi><mo>=</mo><mn>0.05771451654</mn></mrow><annotation encoding="application/x-tex">\rho=0.05771451654</annotation></semantics></math> 站点/Å³，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>μ</mi><mi>n</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mi>/</mi><mi>ρ</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mn>1</mn><mi>/</mi><mn>3</mn></mrow></msup><mi>I</mi></mrow><annotation encoding="application/x-tex">\mu_n=(n/\rho)^{1/3}I</annotation></semantics></math>，令 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>v</mi><mi>n</mi></msub><mo>=</mo><mn>0.25</mn><msup><mi>n</mi><mrow><mn>2</mn><mi>/</mi><mn>3</mn></mrow></msup></mrow><annotation encoding="application/x-tex">v_n=0.25n^{2/3}</annotation></semantics></math>。对称 VP 过程以 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.1</mn><mo>+</mo><mn>19.9</mn><mi>t</mi></mrow><annotation encoding="application/x-tex">\beta(t)=0.1+19.9t</annotation></semantics></math> 控制噪声率。定义 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">[</mo><mi>−</mi><mfrac><mn>1</mn><mn>2</mn></mfrac><msubsup><mo>∫</mo><mn>0</mn><mi>t</mi></msubsup><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>s</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>d</mi><mi>s</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">\alpha(t)=\exp[-\frac12\int_0^t\beta(s)\,ds]</annotation></semantics></math>，则</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>L</mi><mi>t</mi></msub><mo>=</mo><msub><mi>μ</mi><mi>n</mi></msub><mo>+</mo><mi>α</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>L</mi><mn>0</mn></msub><mo>−</mo><msub><mi>μ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msqrt><mrow><msub><mi>v</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>α</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow></msqrt><mspace width="0.167em"></mspace><msub><mi>E</mi><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">y</mi><mi mathvariant="normal">m</mi></mrow></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+L_t=\mu_n+\alpha(t)(L_0-\mu_n)+\sqrt{v_n(1-\alpha(t)^2)}\,E_{\mathrm{sym}}.
+</annotation></semantics></math></p>
+<p>对称噪声由成对非对角项构造，保留每个独立分量的标准方差。初始生成晶胞直接从极限分布取样。八个位点时，先验中心的边长约 5.18 Å，分量标准差为 1 Å。因此模型起步时已有与站点数有关的整体尺度，其角度与长度仍可变化。晶格损失把网络输出与负的标准化扰动比较。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/diffusion/corruption.py">晶格预设均值、方差与实现</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/training/field_loss.py">连续损失</a></p>
+</section>
+<section id="什么是训练什么是本组的推理" class="level4">
+<h4>5.2　什么是训练，什么是本组的推理？</h4>
+<p>在发布权重的训练配置中，一批晶体经上述扰动后，共享网络看见 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>A</mi><mi>j</mi></msub><mo>,</mo><msub><mi>F</mi><mi>t</mi></msub><mo>,</mo><msub><mi>L</mi><mi>t</mi></msub><mo>,</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(A_j,F_t,L_t,t)</annotation></semantics></math> 与可用条件。三头损失的结构为</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="script">ℒ</mi><mo>=</mo><msub><mi mathvariant="script">ℒ</mi><mi>A</mi></msub><mo>+</mo><mn>0.1</mn><mspace width="0.167em"></mspace><msub><mi mathvariant="script">ℒ</mi><mi>F</mi></msub><mo>+</mo><msub><mi mathvariant="script">ℒ</mi><mi>L</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\mathcal L=\mathcal L_A + 0.1\,\mathcal L_F+\mathcal L_L .
+</annotation></semantics></math></p>
+<p>连续头在训练时预测“边际标准差 × score”，推理时除以该标准差得到更新所需的 score。元素的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi mathvariant="script">ℒ</mi><mi>A</mi></msub><annotation encoding="application/x-tex">\mathcal L_A</annotation></semantics></math> 对应 D3PM 反向一步的变分项，加上系数 0.01 的干净标签交叉熵；最后一段到干净类别的重建使用交叉熵，其他步使用真实与模型反向分布之间的 KL。逐字段先在各自样本内聚合，再对晶体批次求平均。元素类别的标签、位置的周期 score 和晶格的标准化扰动提供三种监督。官方 base 配置还记录了 Adam、学习率 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>4</mn></mrow></msup><annotation encoding="application/x-tex">10^{-4}</annotation></semantics></math> 和 batch 配置；本组工作从公开 checkpoint 开始，所有下述生成实验只做推理。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/checkpoints/mattergen_base/config.yaml">训练总配置</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/training/field_loss.py">损失聚合与离散监督</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/d3pm/d3pm.py">D3PM 损失细节</a></p>
+<p>推理时，网络参数固定，<strong>更新的是晶体本身</strong>。默认算法可按如下顺序跟踪。</p>
+<ol type="1">
+<li>从经验分布产生 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>，加入请求的条件 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>；构造全 MASK 的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mn>1</mn></msub><annotation encoding="application/x-tex">A_1</annotation></semantics></math>、经周期包裹的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>F</mi><mn>1</mn></msub><annotation encoding="application/x-tex">F_1</annotation></semantics></math> 与有尺度先验的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>L</mi><mn>1</mn></msub><annotation encoding="application/x-tex">L_1</annotation></semantics></math>。</li>
+<li>沿 1,000 个噪声级从 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">t=1</annotation></semantics></math> 到 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.001</mn><annotation encoding="application/x-tex">0.001</annotation></semantics></math>。默认 PC 在当前噪声级用一次 Langevin corrector 修正 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo>,</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">F,L</annotation></semantics></math>，随后再读一次网络结果，三个 predictor 联合更新 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>,</mo><mi>F</mi><mo>,</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">A,F,L</annotation></semantics></math>。位置和晶格 corrector 的 SNR 参数分别为 0.4 和 0.2。两个子更新前各保存一条状态。</li>
+<li>原生 predictor 同时给出下一步采样状态和均值分支。最后单独导出的 <code>mean</code> 作为生成终态；离散分量采用对应后验的最大概率类别。程序将晶格转换为三边长及夹角，以 <code>num_atoms</code> 切分元素和分数坐标，构造周期 Structure，再写出 EXTXYZ 与 CIF。此时得到可以读入结构工具的候选模型，其合成和稳定性仍有待验证。</li>
+<li>基础库把每条 2,000 记录的原始轨迹转换为 120 个显示帧与一个独立 final。元素原值 101 在 ASE 的通用元素表中可能写成 <code>Md</code>，本组遵循固定模型的 <code>dim=101, offset=1</code> 将这类记录画成灰色 MASK；真实元素值与模型编码同时保留在交接包。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/sampling_conf/default.yaml">默认采样配置</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/sampling/pc_sampler.py">更新与记录顺序</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/generator.py">输出解码</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/export_trajectory.py">转换脚本（课程仓库，需权限）</a></li>
+</ol>
+<p><a id="trajectory"></a></p>
+<p><strong>交互实验怎样显示加噪。</strong> 第 5 节固定 Cu₂Pd、训练预处理、base 权重的字段配置与 CPU seed 17。对 101 个时刻 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>=</mo><mi>i</mi><mi>/</mi><mn>100</mn></mrow><annotation encoding="application/x-tex">t=i/100</annotation></semantics></math> 分别重设该种子再调用官方 <code>sample_marginal</code>。左图始终画干净张量，右图以相同投影和物理比例画该时刻的带噪张量。单字段按钮仅替换所选字段，因而可以在固定晶胞中观察坐标位移，或在固定分数坐标上观察晶格变形。共同随机数便于看清噪声幅度，图中相邻快照不能解读为逐步模拟一条前向 SDE；第 6 节的反向轨迹则读自一次完整生成。第 4 节矩阵追踪使用同一 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>=</mo><mn>0.40</mn></mrow><annotation encoding="application/x-tex">t=0.40</annotation></semantics></math> 的输入，逐项与单步网络探针核对。<a href="../tensor-noise-data.js">101 份边际样本与元数据</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/build_teaching_noise.py">重算快照的脚本（课程仓库，需权限）</a></p>
+</section>
+<section id="用一条实际轨迹逐行核对" class="level4">
+<h4>5.3　用一条实际轨迹逐行核对</h4>
+<p>以下数据来自原无条件批次 <code>tk-cuda-seed42</code>。原始索引从 0 开始。显示帧由均匀抽样得到，某次变化的第一条原始记录和观众第一次能在播放中看见它的帧可能不同。F、In、Tm 的数目按真实标签统计。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th style="text-align: right;">原始记录</th>
+<th style="text-align: right;">未定元素的站点</th>
+<th>F / In / Tm</th>
+<th style="text-align: right;">每原子晶胞体积 (Å³)</th>
+<th>观察</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">8</td>
+<td>0 / 0 / 0</td>
+<td style="text-align: right;">10.11</td>
+<td>站点和晶胞已存在，元素还待揭示</td>
+</tr>
+<tr>
+<td style="text-align: right;">991</td>
+<td style="text-align: right;">2</td>
+<td>5 / 1 / 0</td>
+<td style="text-align: right;">16.41</td>
+<td>两个位点还可从灰色直接数出</td>
+</tr>
+<tr>
+<td style="text-align: right;">1690</td>
+<td style="text-align: right;">0</td>
+<td>6 / 1 / 1</td>
+<td style="text-align: right;">16.01</td>
+<td>原始数据中首次全部有元素标签</td>
+</tr>
+<tr>
+<td style="text-align: right;">1696</td>
+<td style="text-align: right;">0</td>
+<td>6 / 1 / 1</td>
+<td style="text-align: right;">18.02</td>
+<td>120 个显示帧中可以选取的时刻</td>
+</tr>
+<tr>
+<td style="text-align: right;">1999</td>
+<td style="text-align: right;">0</td>
+<td>6 / 1 / 1</td>
+<td style="text-align: right;">19.15</td>
+<td>最后一条保存的采样前状态</td>
+</tr>
+<tr>
+<td style="text-align: right;">独立 final</td>
+<td style="text-align: right;">0</td>
+<td>6 / 1 / 1</td>
+<td style="text-align: right;">19.17</td>
+<td>可交付 F₆InTm 的 CIF</td>
+</tr>
+</tbody>
+</table></div>
+<p>同一条记录已经能支持一个具体的过程判断：全部元素揭示以后，晶格仍在更新。生成轨迹的轴是算法步，体积起伏描述晶胞状态的改变。八次 CUDA 基础运行覆盖 3–20 个站点，最终组成依次为 F₆InTm、CoLu₂Pd、N₁₀Sm₄、B₄Ga₂RhRu₉Sc₄、Ca₂Rb₃Te₆Zr、HGaPdRh、Cu₂Pd、CdNaNi₄。八次均生成可读结构，端到端时间中位数约 78 秒。另有独立 MPS 流程预检查。两个设备的同整数 seed 可产生不同结果，比较时用完整实验 ID。<a href="../analysis/cuda-cohort/tk-cuda-seed42_process.csv">原始帧指标</a> · <a href="../deliverables/tk-cuda-seed42/final.cif">独立最终 CIF</a> · <a href="../analysis/cuda-cohort/candidates.csv">八样本字段与检验状态</a> · <a href="results.zh-CN.html">设备和耗时口径</a></p>
+<p><a id="sampler"></a></p>
+</section>
+</section>
+<section id="同一去噪器为什么会走出不同轨迹" class="level3">
+<h3>6　同一去噪器为什么会走出不同轨迹？</h3>
+<section id="改变的是哪一步" class="level4">
+<h4>6.1　改变的是哪一步？</h4>
+<p>令连续字段前向的局部随机变化满足 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mi>x</mi><mo>=</mo><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo>,</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>d</mi><mi>t</mi><mo>+</mo><mi>G</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>d</mi><mi>W</mi></mrow><annotation encoding="application/x-tex">dx=f(x,t)\,dt+G(t)\,dW</annotation></semantics></math>，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>D</mi><mo>=</mo><mi>G</mi><msup><mi>G</mi><mi mathvariant="sans-serif">𝖳</mi></msup></mrow><annotation encoding="application/x-tex">D=GG^\mathsf T</annotation></semantics></math>。在本例给定站点数时，扩散幅值与时刻及站点数有关。对匹配的连续噪声过程，反向 SDE 沿时间递减方向使用 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo>−</mo><mi>D</mi><msub><mi>s</mi><mi>θ</mi></msub></mrow><annotation encoding="application/x-tex">f-Ds_\theta</annotation></semantics></math> 加随机增量；对应的概率流 ODE 使用 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo>−</mo><mstyle displaystyle="false"><mfrac><mn>1</mn><mn>2</mn></mfrac></mstyle><mi>D</mi><msub><mi>s</mi><mi>θ</mi></msub></mrow><annotation encoding="application/x-tex">f-\tfrac12Ds_\theta</annotation></semantics></math>，其中 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>s</mi><mi>θ</mi></msub><annotation encoding="application/x-tex">s_\theta</annotation></semantics></math> 估计当前带噪密度的对数梯度。这解释了把随机噪声项直接设零与构造概率流 Euler 有何区别。我们的连续一步为</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><mi>x</mi><mo>+</mo><mi mathvariant="normal">Δ</mi><mi>t</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="prefix">[</mo><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo>,</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mstyle displaystyle="false"><mfrac><mn>1</mn><mn>2</mn></mfrac></mstyle><mi>D</mi><msub><mi>s</mi><mi>θ</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>X</mi><mi>t</mi></msub><mo>,</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">]</mo><mo>,</mo><mspace width="1.0em"></mspace><mi mathvariant="normal">Δ</mi><mi>t</mi><mo>=</mo><mi>−</mi><mn>0.001</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
+x_{\mathrm{next}}=x+\Delta t\,[f(x,t)-\tfrac12Ds_\theta(X_t,t)],\quad \Delta t=-0.001 .
+</annotation></semantics></math></p>
+<p>各字段使用自身的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo>,</mo><mi>G</mi></mrow><annotation encoding="application/x-tex">f,G</annotation></semantics></math>。位置用 wrapped VE 后取模，晶格在对称表示中使用有非零先验均值的 VP。<strong>元素在全部对照中都做 1,000 次 D3PM 后验抽样。</strong> 混合路径因此仍具有离散采样随机性。概率流与反向 SDE 的边际一致性定理涉及理想连续 score 等条件；本实验使用有限步、学习到的 score 和离散耦合，考察的是实测单样本轨迹。图像 DDIM 提供连续高斯扩散中更换推理路径的先例；此处实现的具体方法名称为“连续概率流 Euler + D3PM”。<a href="https://arxiv.org/abs/2011.13456">概率流推导</a> · <a href="https://arxiv.org/abs/2010.02502">DDIM</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/run_paired_samplers.py">项目求解器源码（课程仓库，需权限）</a></p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>方法</th>
+<th>连续字段的更新</th>
+<th>固定条件及可比较对象</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>默认 PC</td>
+<td>同一噪声级做一次 Langevin 校正，再做祖先预测</td>
+<td>与下一行相比，多一次校正及一次网络调用</td>
+</tr>
+<tr>
+<td>仅祖先预测</td>
+<td>采用同一祖先预测器，移除校正器</td>
+<td>与上一行共同揭示校正器与额外计算的综合影响</td>
+</tr>
+<tr>
+<td>混合概率流 Euler</td>
+<td>位置和晶格用上述 Euler 更新</td>
+<td>与仅祖先预测有相同的模型调用数与离散类别更新数，可比较两种连续数值规则</td>
+</tr>
+</tbody>
+</table></div>
+<p>逐 seed 使用官方 prior 抽取一次完整初态，然后克隆成三份。对每组的元素、晶格、分数坐标和站点数逐值及哈希核对；连续随机种子取 <code>seed+10000</code>，离散 D3PM 独立随机流取 <code>seed+20000</code>。独立类别随机流避免三种方法调用连续随机数次数不同而直接错开类别随机序列。这仍允许类别 logits 随几何分叉。3 个 seed 是三个配对案例，同一数值的基础库 seed 来自另一种随机流约定。计时在 HKUST RTX A6000 GPU 7、batch 1 上进行，排除加载、预热、写 CIF 和绘图，包含逐步记录到 CPU 和同步。执行顺序按 seed 轮换。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/experiment.json">实验元数据（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/base_sampling.yaml">配置快照（课程仓库，需权限）</a></p>
+</section>
+<section id="怎样度量走了多远" class="level4">
+<h4>6.2　怎样度量“走了多远”？</h4>
+<p>在每个共同噪声级 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math> 更新前取 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>k</mi></msub><mo>,</mo><msub><mi>L</mi><mi>k</mi></msub><mo>,</mo><msub><mi>A</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">F_k,L_k,A_k</annotation></semantics></math>。先将每个原始站点的相邻分数位移折回 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mi>−</mi><mn>0.5</mn><mo>,</mo><mn>0.5</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">[-0.5,0.5)</annotation></semantics></math>，再计算</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mi>k</mi></msub><mo>=</mo><msqrt><mrow><mfrac><mn>1</mn><mi>n</mi></mfrac><munder><mo>∑</mo><mi>i</mi></munder><mo stretchy="false" form="postfix">∥</mo><msub><mrow><mi mathvariant="normal">wrap</mi><mo>&#8289;</mo></mrow><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>F</mi><mrow><mi>k</mi><mo>+</mo><mn>1</mn><mo>,</mo><mi>i</mi></mrow></msub><mo>−</mo><msub><mi>F</mi><mrow><mi>k</mi><mo>,</mo><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup></mrow></msqrt><mi>.</mi></mrow><annotation encoding="application/x-tex">
+d_k=\sqrt{\frac{1}{n}\sum_i\|\operatorname{wrap}_{1/2}(F_{k+1,i}-F_{k,i})\|^2}.
+</annotation></semantics></math></p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>d</mi><mi>k</mi></msub><annotation encoding="application/x-tex">d_k</annotation></semantics></math> 无量纲。取 999 个相邻级的平均值，衡量算法的一步通常移动多少个分数周期。端点比较另按原始站点索引，从真实 prior 到独立最终结构直接算同一个 RMS。每原子体积由 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><mrow><mi mathvariant="normal">det</mi><mo>&#8289;</mo></mrow><mi>L</mi><mo stretchy="false" form="prefix">|</mo><mi>/</mi><mi>n</mi></mrow><annotation encoding="application/x-tex">|\det L|/n</annotation></semantics></math> 得到。上式按坐标分量折回，斜晶胞中以 Å 度量的最近空间像需要使用晶格度量。另存的最短邻距包含本位点的非零周期像。当前数值路径记录的位移、时刻和成分切换均具有算法语义。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/analyze_paired_samplers.py">按级分析与 CIF 核对（课程仓库，需权限）</a> · <a href="../analysis/training_free_sampler/levels.csv">9,000 条逐级记录</a></p>
+</section>
+<section id="相同预算下差别在哪里" class="level4">
+<h4>6.3　相同预算下，差别在哪里？</h4>
+<div class="table-scroll"><table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>方法</th>
+<th style="text-align: right;">网络调用/晶胞</th>
+<th style="text-align: right;">三样本采样耗时中位数</th>
+<th style="text-align: right;">各样本平均 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>d</mi><mi>k</mi></msub><annotation encoding="application/x-tex">d_k</annotation></semantics></math> 的跨 seed 中位数</th>
+<th>seed 42 / 48 / 43 的最终体积（Å³/站点）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PC</td>
+<td style="text-align: right;">2,000</td>
+<td style="text-align: right;">66.62 s</td>
+<td style="text-align: right;">0.28076</td>
+<td>20.03 / 24.81 / 32.30</td>
+</tr>
+<tr>
+<td>仅祖先预测</td>
+<td style="text-align: right;">1,000</td>
+<td style="text-align: right;">31.04 s</td>
+<td style="text-align: right;">0.09136</td>
+<td>21.62 / 1,550.08 / 1,233.09</td>
+</tr>
+<tr>
+<td>混合概率流 Euler</td>
+<td style="text-align: right;">1,000</td>
+<td style="text-align: right;">30.47 s</td>
+<td style="text-align: right;">0.000324</td>
+<td>16.39 / 27.83 / 25.08</td>
+</tr>
+</tbody>
+</table></div>
+<p>三个初态下，每种方法都生成了与本组另外两种方法不同的最终元素组成。以 seed 48 为例，PC、仅祖先预测、混合 Euler 的组成依次为 NdDyC、Rb₂Se、NdDyGa。仅祖先预测给出了非常拉长而歪斜的晶胞，三边约 185–190 Å，原生晶格矩阵条件数为 159，体积 1,550.08 Å³/站点。同一初态下另两种方法均低于 28 Å³/站点。这个案例可直接指向需要下游检验的几何异常；对照中缺少能量、声子和独立稳定性标签，不能据此给三种方法排物理质量名次。<a href="../analysis/training_free_sampler/metrics.csv">逐样本全指标</a> · <a href="../analysis/training_free_sampler/seed48_ancestral/final.cif">异常端点 CIF</a> · <a href="../analysis/training_free_sampler/seed48_pc/final.cif">对应 PC 端点</a></p>
+<p>相同 1,000 次网络调用下，两种方法的时延接近，轨迹形状却有显著数量级差别。混合 Euler 的平滑性也可以与净位移交叉检查。seed 42、48、43 的起点到终点分数坐标 RMS 分别为 0.183、0.235、0.266，其每原子体积从 28.26、20.84、23.27 变为 16.39、27.83、25.08 Å³。许多小步累积产生了可测量的净变化。PC 的大步则包含主动注入的噪声，不能把一步步长直接解释为算法误差。<a href="../analysis/training_free_sampler/paired_trajectories.png">三个种子的配对轨迹图</a> · <a href="training_free_sampler.zh-CN.html">全部公式、输入与复现步骤</a></p>
+</section>
+<section id="固定采样器只改变噪声起点" class="level4">
+<h4>6.4　固定采样器，只改变噪声起点</h4>
+<p>再用 base 权重比较三个等大的初态。每个初态有 8 个 MASK 位点，使用同一空性质条件。只重抽 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>T</mi></msub><mo>,</mo><msub><mi>L</mi><mi>T</mi></msub></mrow><annotation encoding="application/x-tex">F_T,L_T</annotation></semantics></math>（种子 142、143、148），每次反向求解前把连续随机种子与元素随机种子分别重置为 10042 和 20042。原三组实验从尺寸分布抽样，此处显式固定 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">n=8</annotation></semantics></math>。因此可以在同一求解器下，观察初始几何对同一次采样程序的影响。</p>
+<p>默认 PC 的三个终态依次是 LiTl₅Sn₂、Sm₂Cu₂Si₄、Li₂Pb₆，体积分别为 28.25、17.61、28.36 Å³/位点。第一和第三种的平均体积很接近，晶胞内的元素集合与计数却不同。三条路径都将全部 MASK 揭示，首次达到全已知的噪声级分别为 879、919、838。三种求解器都在每个先验上完整运行，所以同一组九条轨迹可以纵向比较起点、横向比较更新规则。此实验给出三个具体起点的变化范围；估计候选分布及采样概率需要更多独立试验。<a href="../analysis/training_free_sampler_fixed_n/metrics.csv">逐样本组成与路径指标</a> · <a href="training_free_sampler.zh-CN.html">三乘三对照、验证与复现</a></p>
+</section>
+<section id="固定化学条件换一个种子还能生成什么" class="level4">
+<h4>6.5　固定化学条件，换一个种子还能生成什么？</h4>
+<p>第 7 节还可以选定 Mg–O 或 Al–O，再固定 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\gamma=1</annotation></semantics></math> 或 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\gamma=2</annotation></semantics></math>。这四组都使用同一化学条件权重、默认 PC 和 1,000 个噪声级。在每组里，种子 42 抽到 8 个位点，43 抽到 4 个位点。每条轨迹有 2,000 条存档，页面对齐其中 9 个时刻并单独显示最终结构。例如，固定 Mg–O 与 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\gamma=1</annotation></semantics></math> 时，两次得到 Mg₄O₄ 与 Mg₂O₂，均为 1∶1；固定 Mg–O 与 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\gamma=2</annotation></semantics></math> 时，两次得到 Mg₃O₅ 与 Mg₂O₂，元素集合仍相同，配比已不同。这个比较同时允许位点数、初始几何和后续采样随机数随种子变化。四组数据与下一节的 CFG 实验共用相应原始运行。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/build_condition_paths.py">四组同步快照的生成代码（课程仓库，需权限）</a> · <a href="../analysis/training_free_control/results.csv">逐样本结果</a></p>
+<p><a id="guidance"></a></p>
+</section>
+</section>
+<section id="固定了目标怎样调整它对同一步更新的影响" class="level3">
+<h3>7　固定了目标，怎样调整它对同一步更新的影响？</h3>
+<section id="cfg-在三个输出上做了什么" class="level4">
+<h4>7.1　CFG 在三个输出上做了什么？</h4>
+<p>对同一 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>X</mi><mi>t</mi></msub><mo>,</mo><mi>t</mi></mrow><annotation encoding="application/x-tex">X_t,t</annotation></semantics></math> 和同一份条件权重，记不使用条件嵌入的输出为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>u</mi><annotation encoding="application/x-tex">u</annotation></semantics></math>，使用目标 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math> 的输出为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>。官方实现将其组合成 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>u</mi><mo>+</mo><mi>γ</mi><mo stretchy="false" form="prefix">(</mo><mi>v</mi><mo>−</mo><mi>u</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">u+\gamma(v-u)</annotation></semantics></math>。<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\gamma=0</annotation></semantics></math> 直接采用无条件分支，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\gamma=1</annotation></semantics></math> 采用条件分支，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\gamma=2</annotation></semantics></math> 沿差值方向线性外推。对连续字段这一步组合 score，对类别组合 logits，再用 D3PM 后验抽样。若 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ℓ</mi><mi>γ</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>γ</mi><mo stretchy="false" form="postfix">)</mo><msub><mi>ℓ</mi><mi>u</mi></msub><mo>+</mo><mi>γ</mi><msub><mi>ℓ</mi><mi>c</mi></msub></mrow><annotation encoding="application/x-tex">\ell_\gamma=(1-\gamma)\ell_u+\gamma\ell_c</annotation></semantics></math>，在适用的类别支持上归一化即得到 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mi>γ</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo stretchy="false" form="postfix">)</mo><mo>∝</mo><msub><mi>p</mi><mi>u</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mn>1</mn><mo>−</mo><mi>γ</mi></mrow></msup><msub><mi>p</mi><mi>c</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><msup><mo stretchy="false" form="postfix">)</mo><mi>γ</mi></msup></mrow><annotation encoding="application/x-tex">p_\gamma(a)\propto p_u(a)^{1-\gamma}p_c(a)^\gamma</annotation></semantics></math>。离散字段混合发生在后验更新之前。由于位置、晶格和元素共享上下文，一次 CFG 干预可能同时改变元素选择与后续几何。<code>guidance_scale</code> 使用上述具体约定，其他项目把“外推增量”另记一个参数时应先换算。<a href="https://arxiv.org/abs/2207.12598">CFG 原论文</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/sampling/classifier_free_guidance.py">本版混合与端点分支</a></p>
+<p>三种可以分别干预的量至此都已出现。<strong>换条件 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math></strong> 改变交给模型的信息；<strong>调 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>γ</mi><annotation encoding="application/x-tex">\gamma</annotation></semantics></math></strong> 改变条件与无条件输出的组合；<strong>换求解器</strong> 改变给定输出如何更新状态。化学集合实验只改变前两项，固定默认 PC。空间群使用另一份适配权重，跨权重的输出不用于估计单一条件强度效应。</p>
+</section>
+<section id="给出元素集合后会出现哪些元素各有几个" class="level4">
+<h4>7.2　给出元素集合后，会出现哪些元素，各有几个？</h4>
+<p>在 GPU 4 上用同一冻结 <code>chemical_system</code> 权重运行 12 次推理。每个 seed 在两个目标、三档强度间核对完整第一条保存结构一致。判定“精确命中”的标准为输出元素集合与请求集合相等。公式下标是提交晶胞内的实际位点计数，未做最简比约化。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>目标</th>
+<th>seed / 位点数</th>
+<th>γ=0</th>
+<th>γ=1</th>
+<th>γ=2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mg–O</td>
+<td>42 / 8</td>
+<td>F₆InMg</td>
+<td>Mg₄O₄</td>
+<td>Mg₃O₅</td>
+</tr>
+<tr>
+<td>Al–O</td>
+<td>42 / 8</td>
+<td>F₆InNi</td>
+<td>Al₂O₆</td>
+<td>Al₃O₅</td>
+</tr>
+<tr>
+<td>Mg–O</td>
+<td>43 / 4</td>
+<td>AuBiLiLu</td>
+<td>Mg₂O₂</td>
+<td>Mg₂O₂</td>
+</tr>
+<tr>
+<td>Al–O</td>
+<td>43 / 4</td>
+<td>AuBiLiLu</td>
+<td>AlO₃</td>
+<td>Al₂O₂</td>
+</tr>
+<tr>
+<td>合计命中</td>
+<td>4 项</td>
+<td><strong>0/4</strong></td>
+<td><strong>4/4</strong></td>
+<td><strong>4/4</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>固定 seed 42 和 γ=1，改换目标由 Mg₄O₄ 变为 Al₂O₆。固定 Mg–O 和同一初态，增加 γ 又把氧比例从 4/8 改为 5/8。两种非零强度在四项案例中都已命中，提高强度没有带来额外的集合命中。seed 43 的两个强度还有相同计量的例子，具体输出并非普遍单调。γ=0 的两个实验名称各对应一次无条件分支调用；seed 42 两次关闭条件却有不同终态，体现 GPU 数值差异可随采样放大，不能把这个差别归因于条件标签。12 次运行的首末墙钟跨度约 12 分 02 秒，两个进程共享同一张卡，单进程端到端为 110.0–129.5 秒。<a href="../analysis/training_free_control/results.csv">原始结果表</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_control/source_data.zip">完整原件、状态与哈希（课程仓库，需权限）</a></p>
+<p><strong>补齐七档以后。</strong> 保留原来的三档，在同一 <code>chemical_system</code> 权重与 PC 配置下新增 16 次推理。两个种子各自跨 14 次运行的首帧均通过同一哈希检查。下表每列有两个目标 × 两个种子。最小非零档有一个容易误解的结果，见第一行。GPU 2 的新批次与 GPU 4 的原三档采用相同型号 RTX A6000；执行时的并发数不同，计时单独保留。</p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>对照</th>
+<th>0</th>
+<th>0.25</th>
+<th>0.5</th>
+<th>1</th>
+<th>1.5</th>
+<th>2</th>
+<th>3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mg–O，seed 42</td>
+<td>F₆InMg</td>
+<td>Mg₈</td>
+<td>Mg₄O₄</td>
+<td>Mg₄O₄</td>
+<td>Mg₄O₄</td>
+<td>Mg₃O₅</td>
+<td>Mg₄O₄</td>
+</tr>
+<tr>
+<td>Mg–O，seed 43</td>
+<td>AuBiLiLu</td>
+<td>Mg₃O</td>
+<td>Mg₂O₂</td>
+<td>Mg₂O₂</td>
+<td>MgO₃</td>
+<td>Mg₂O₂</td>
+<td>Mg₂O₂</td>
+</tr>
+<tr>
+<td>Al–O，seed 42</td>
+<td>F₆InNi</td>
+<td>Al₂O₆</td>
+<td>Al₃O₅</td>
+<td>Al₂O₆</td>
+<td>Al₃O₅</td>
+<td>Al₃O₅</td>
+<td>Al₄O₄</td>
+</tr>
+<tr>
+<td>Al–O，seed 43</td>
+<td>AuBiLiLu</td>
+<td>Al₂O₂</td>
+<td>Al₂O₂</td>
+<td>AlO₃</td>
+<td>Al₂O₂</td>
+<td>Al₂O₂</td>
+<td>Al₂O₂</td>
+</tr>
+<tr>
+<td>精确集合命中</td>
+<td>0/4</td>
+<td>3/4</td>
+<td>4/4</td>
+<td>4/4</td>
+<td>4/4</td>
+<td>4/4</td>
+<td>4/4</td>
+</tr>
+</tbody>
+</table></div>
+<p>Mg₈ 的每个位点都在 Mg–O 白名单内，整份晶胞仍缺氧，因而集合检验失败。把 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>γ</mi><annotation encoding="application/x-tex">\gamma</annotation></semantics></math> 提到 0.5，同一初态得到 Mg₄O₄。继续提到 2、3，氧的位点比例依次为 5/8、4/8；集合命中可以持平，化学计量仍会变动。观察到的平台只有两个独立种子，不能据此选出普适引导系数。同为 Mg₄O₄ 的结果也可能体积不同，例如 0.5 与 1 的终态分别约 9.7 与 12.9 Å³/位点。<a href="../analysis/training_free_control_extended/results.csv">28 个结果与所有指标</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_control_extended/source_data.zip">七档原始归档（课程仓库，需权限）</a></p>
+</section>
+<section id="命中是网络学到了条件还是程序筛掉了元素" class="level4">
+<h4>7.3　命中是网络学到了条件，还是程序筛掉了元素？</h4>
+<p>为观察目标专用元素屏蔽的作用，另做四个配对推理。固定 Mg–O、相同种子、相同权重、PC 与 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>1</mn><mo>,</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\gamma=1,2</annotation></semantics></math>，仅在官方支持元素的全局筛选后绕过目标集合专用 logit 屏蔽。学习到的 Mg–O 条件嵌入照常送入网络。验证时记录分支启用状态，并检测一个集合外 Si 类别的 logit 在该额外筛选点前后逐值一致。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>seed</th>
+<th style="text-align: right;">γ</th>
+<th>原配置</th>
+<th>移除目标专用屏蔽</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>42</td>
+<td style="text-align: right;">1</td>
+<td>Mg₄O₄</td>
+<td>Mg₅O₃</td>
+</tr>
+<tr>
+<td>42</td>
+<td style="text-align: right;">2</td>
+<td>Mg₃O₅</td>
+<td>Mg₄O₄</td>
+</tr>
+<tr>
+<td>43</td>
+<td style="text-align: right;">1</td>
+<td>Mg₂O₂</td>
+<td>Mg₂O₂</td>
+</tr>
+<tr>
+<td>43</td>
+<td style="text-align: right;">2</td>
+<td>Mg₂O₂</td>
+<td>MgO₃</td>
+</tr>
+</tbody>
+</table></div>
+<p>在这四个样本上，保留嵌入、引导和全局元素约束就能命中目标，两档各 2/2。与完整配置比较，四例中三例的氧位点比例发生变化。实验仅覆盖 Mg–O、两个种子；它支持本条件中学习信号能够参与选择，尚不足以估计程序筛选对整个化学空间的边际贡献。四次附加推理墙钟跨度约 3 分 48 秒。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/run_embedding_only.py">干预实现（课程仓库，需权限）</a> · <a href="../analysis/training_free_control_embedding_only/results.csv">消融结果</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_control_embedding_only/source_data.zip">干预日志与全部轨迹（课程仓库，需权限）</a></p>
+<p>七档官方实验和消融合计 32 个独立终态，均通过 CIF 与最终 EXTXYZ 周期等价检查。在 64,000 个保存的中间记录中，主实验的两条有零体积晶格，来自 seed 43、Mg–O、γ=0 的原始索引 396 和 γ=2 的索引 893。原始档案保留全部记录。三维预览从可用记录抽取，并保留原始索引。出现退化中间表示与最终 CIF 的完整性分别检查。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_control/summary.json">主实验检查摘要（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_control_embedding_only/summary.json">消融检查摘要（课程仓库，需权限）</a> · <a href="training_free_control.zh-CN.html">完整分析</a></p>
+<p><a id="symmetry"></a></p>
+</section>
+<section id="要求涉及空间排列时怎样验证条件响应" class="level4">
+<h4>7.4　要求涉及空间排列时，怎样验证条件响应？</h4>
+<p>将性质从“出现哪几种元素”换成“完整晶体具有哪种空间群”。在同一冻结 <code>space_group</code> 权重下，以 batch seed 20261118 取四份初态，得到 8、4、10、20 个站点。各跑三个分支：无引导参考、以 γ=2 请求第 1 号 P1、以 γ=2 请求第 225 号 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mi>m</mi><mover><mn>3</mn><mo accent="true">‾</mo></mover><mi>m</mi></mrow><annotation encoding="application/x-tex">Fm\bar3m</annotation></semantics></math>。参考批的参数中有目标 1，但 γ=0 只调用无条件分支，这批可作为两个目标的共同参照。从<strong>未弛豫的最终 CIF</strong> 提取晶格、分数坐标和元素，送入 spglib；同时对独立最终 EXTXYZ 做同一检测。代码使用 spglib 2.7.0，角度容差 5°，主距离容差 0.05 Å，另做 0.01 和 0.10 Å 扫描。检查依据是导出的实际几何。两种文件的检测结果一致。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_spacegroup/run_manifest.json">数据、设备与调用参数（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/space_group_controls.py">生成与对称性分析（课程仓库，需权限）</a></p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr>
+<th>同一初态</th>
+<th style="text-align: right;">位点数</th>
+<th style="text-align: right;">无引导测得的群</th>
+<th style="text-align: right;">请求 #1 测得的群</th>
+<th style="text-align: right;">请求 #225 测得的群</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;"><strong>1</strong></td>
+<td style="text-align: right;"><strong>225</strong></td>
+</tr>
+<tr>
+<td>1</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">160</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;"><strong>225</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">44</td>
+<td style="text-align: right;"><strong>1</strong></td>
+<td style="text-align: right;"><strong>225</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;"><strong>1</strong></td>
+<td style="text-align: right;">74</td>
+</tr>
+</tbody>
+</table></div>
+<p>两个目标各精确命中 3/4。共同参考的 #1 与 #225 各为 1/4 和 0/4。样本 0 在参考和 #225 两个分支中恰好同为 F₆LaNi，分别测得 #2 和 #225；在各自提供的输入晶胞中，spglib 找到 2 与 48 个对称操作。这个例子能把“组成相同”和“几何对称性不同”直接呈现在两份真实文件上。插图若采用常规晶胞，可能含有更多周期等价站点，操作数应按上文的输入胞解读。这一对同时改变了是否启用条件与引导强度；独立估计单独一项的作用需要额外分支。<a href="../analysis/training_free_spacegroup/reference_0.cif">参考 CIF</a> · <a href="../analysis/training_free_spacegroup/target_225_0.cif">目标 225 CIF</a> · <a href="../analysis/training_free_spacegroup/space_group_pair.png">等比例结构图</a></p>
+<p>样本 3 请求 #225 后，按 0.05 Å 判为 #74，严格到 0.01 Å 判为 #8；两个结果均未达到所请求的群。三档容差下两个目标各自的总命中数都为 3/4。四个配对实例能同时展示成功和偏差，但总体命中率仍有很大抽样不确定性。三批的进程端到端耗时为 85.5、119.5、115.7 秒，每批含四个晶体。这些时间和第 6 节单样本的纯采样时段有不同测量口径。<a href="../analysis/training_free_spacegroup/symmetry.csv">逐容差逐样本表</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_spacegroup/source_data.zip">原始运行档案（课程仓库，需权限）</a> · <a href="training_free_spacegroup.zh-CN.html">空间群实验详情</a></p>
+</section>
+<section id="结论怎样交给物理验证" class="level4">
+<h4>结论怎样交给物理验证？</h4>
+<p>现在可以围绕同一个候选连续回答三类问题。<strong>它是怎么来的？</strong> 看 checkpoint、条件、噪声与求解器、第一条记录、独立 final。<strong>它实现了哪些目标？</strong> 从最终 CIF 重算元素集合、尺寸与对称性，并附具体阈值。<strong>它能否作为材料存在？</strong> 需要与所声称的物理性质匹配的进一步检验，例如弛豫前后几何与残余力、相对于参考相的能量、对小位移的动力学响应。提交给物理组时保存输入 CIF 哈希，为弛豫后的输出另设 ID，用明确的对照将数据完整性、条件响应、物理判断串起来。这里的能量与声子仍是下游要回答的问题。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/handoff.md">交接字段（课程仓库，需权限）</a> · <a href="../analysis/cuda-cohort/candidates.csv">基础候选的物理验证记录状态</a></p>
+</section>
+</section>
+</section>
+<section id="附录-a-怎样复核站点重排与平移探针" class="level2">
+<h2>附录 A　怎样复核站点重排与平移探针？</h2>
+<p>在 <code>members/tk/</code> 目录、已准备好本地 base 权重的 MatterGen 环境中运行下列 Python。它检验一次前向。项目中的三个返回字段沿用输入字段名称，其中 <code>atomic_numbers</code> 在输出一侧已变为 logits。比较重排前后的结果时，先对参考输出施加相同置换，再逐项求误差。平移只作用于坐标，因此保持参考输出原顺序。这一带噪样本恰好仍显示三个元素标签；第 5 节的掩码概率描述的是随机边际。<a href="../analysis/architecture_probe.json">探针全部输入、三个输出和精确误差</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/reproduce.md">运行环境准备（课程仓库，需权限）</a></p>
+<pre class="python"><code>from pathlib import Path
+
+import torch
+from pymatgen.io.cif import CifParser
+from mattergen.common.data.collate import collate
+from mattergen.common.data.dataset import CrystalDataset, structures_to_numpy
+from mattergen.common.data.transform import set_chemical_system_string, symmetrize_lattice
+from mattergen.common.utils.data_classes import MatterGenCheckpointInfo
+from mattergen.common.utils.eval_utils import load_model_diffusion
+
+torch.set_num_threads(1)
+cif = Path(&quot;deliverables/tk-cuda-seed48/final.cif&quot;)
+weights = Path(&quot;external/models/checkpoints/mattergen_base&quot;).resolve()
+
+with torch.inference_mode():
+    structure = CifParser(cif).parse_structures(primitive=True)[0]
+    structure.properties[&quot;material_id&quot;] = &quot;tk-cuda-seed48&quot;
+    arrays, properties = structures_to_numpy([structure])
+    dataset = CrystalDataset(
+        **arrays, properties=properties,
+        transforms=[symmetrize_lattice, set_chemical_system_string],
+    )
+    graph = collate([dataset[0]])
+    loaded = load_model_diffusion(MatterGenCheckpointInfo(model_path=weights)).cpu().eval()
+    diffusion = loaded.diffusion_module
+    torch.manual_seed(17)
+    time = torch.tensor([0.4])
+    noisy = diffusion.corruption.sample_marginal(graph, time)
+    reference = diffusion.model(noisy, time)
+
+    perm = torch.tensor([2, 0, 1])
+    reordered = noisy.replace(pos=noisy.pos[perm], atomic_numbers=noisy.atomic_numbers[perm])
+    translated = noisy.replace(pos=(noisy.pos + torch.tensor([0.25, 0.375, 0.625])) % 1)
+    for name, variant, order in [
+        (&quot;permutation&quot;, reordered, perm),
+        (&quot;translation&quot;, translated, torch.arange(3)),
+    ]:
+        observed = diffusion.model(variant, time)
+        for field in (&quot;atomic_numbers&quot;, &quot;pos&quot;, &quot;cell&quot;):
+            expected = getattr(reference, field)
+            if field != &quot;cell&quot;:
+                expected = expected[order]
+            print(name, field, (getattr(observed, field) - expected).abs().max().item())</code></pre>
+<p>该输入 CIF 来自 CUDA 基础库 seed 48，生成初态和 CPU 探针的加噪初态有各自的种子与用途。探针使用单线程 CPU、FP32、Python 3.10.21、PyTorch 2.4.1、PyG 2.8.1、pymatgen 2024.10.29；其余环境、张量形状和带噪字段保存在 JSON。单纯检验本手册的数值表时，读出三套已保存的输出即可独立重算每个最大绝对差。</p>
+</section>
+<section id="附录-b-从一个结果追到原始文件" class="level2">
+<h2>附录 B　从一个结果追到原始文件</h2>
+<p><strong>选择样本。</strong> 在 <code>experiment_index.csv</code> 用实验、seed、批位置以及条件选择一行。基础库候选的唯一标识如 <code>tk-cuda-seed48</code>。条件实验中，seed 43 的不同目标或强度有各自的端点；空间群样本还要带批内位置。表中的 <code>sites</code>、<code>formula</code>、<code>volume_per_site_A3</code> 是最终结构属性，<code>raw_records</code> 指该轨迹实际写出的记录数。<code>time_scope</code> 给出计时归属，尤其要留意“一整个 batch 耗时”和“单个样本纯采样耗时”。<code>initial_sha256</code> 可用时描述该协议登记的初态；基础库未登记这项哈希的行留空。<a href="../analysis/experiment_index.csv">逐终态索引</a></p>
+<p><strong>读出原件。</strong> <code>final_cif</code>、<code>raw_trajectory</code>、<code>run_record</code> 与 <code>config</code> 的相对路径自 <code>members/tk/</code> 起算。<code>!</code> 表示进入前一层 ZIP，例如化学实验先打开 <code>source_data.zip</code>，再打开内部的 <code>generated_trajectories.zip</code>，最后取 <code>gen_0.extxyz</code>。基础库及条件实验的轨迹包含晶格、站点和分数坐标可恢复的笛卡尔坐标。配对求解器保留 NPZ 中的原生分数张量和晶格矩阵，便于比较相同噪声级和相同站点。批量比较先用 CSV；核验具体一行时回到实际最终 CIF、原始轨迹和版本记录。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/seed48_pc/trajectory.npz">采样器实例（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/evidence_sha256.json">来源包与哈希（课程仓库，需权限）</a></p>
+<p><strong>固定实现。</strong> 三份权重来自同一官方模型库 revision <code>5244495dd9a979ff71abc7548a0b14b9deb0069a</code>；MatterGen 代码固定为 <code>92423660a8bd70e83679086e88f88596d484dc16</code>。以下 SHA-256 按完整权重文件计算。运行档案另存配置与 Git LFS 指针，便于取得相应版本并对照。权重和代码身份一致，跨设备浮点归约、并行库和随机流实现仍可能影响逐样本完全复现。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/run_metadata.zip">冻结版本、采样配置与日志（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/reproduce.md">基础库推理和校验步骤（课程仓库，需权限）</a></p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>权重</th>
+<th>对应实验</th>
+<th>权重文件 SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mattergen_base</code></td>
+<td>基础无条件、配对求解器、CPU 前向探针</td>
+<td><code>81668ee12afc1ee1b037f362420730de3460bfd2d36e547585fdcb911a3dfdef</code></td>
+</tr>
+<tr>
+<td><code>chemical_system</code></td>
+<td>化学体系、CFG、移除目标专用屏蔽</td>
+<td><code>4ad21d977c2b776a31c92498c4d1c88d3e1e286deeb941e997af8e082310b80e</code></td>
+</tr>
+<tr>
+<td><code>space_group</code></td>
+<td>空间群条件</td>
+<td><code>1b6ab06739f4319d75f4a19960840ec3c8d3d32ee842c996876ef9d8b188e4bb</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>下面的例子仅需 Python 标准库。它从索引选取 seed 42、化学体系 Mg–O、γ=1，验证外层原始档案的 SHA-256，再从嵌套 ZIP 取出独立终态的 CIF。对一般表项也适用同一文件寻址方法。</p>
+<pre class="python"><code>import csv
+import hashlib
+import io
+import json
+import zipfile
+from pathlib import Path
+
+with Path(&quot;analysis/experiment_index.csv&quot;).open() as file:
+    rows = list(csv.DictReader(file))
+row = next(r for r in rows if r[&quot;experiment&quot;] == &quot;chemical_system&quot;
+           and r[&quot;seed&quot;] == &quot;42&quot; and r[&quot;condition&quot;] == &quot;Mg-O&quot; and float(r[&quot;gamma&quot;]) == 1)
+archive, *members = row[&quot;final_cif&quot;].split(&quot;!&quot;)
+payload = Path(archive).read_bytes()
+hashes = json.loads(Path(&quot;analysis/evidence_sha256.json&quot;).read_text())
+assert hashlib.sha256(payload).hexdigest() == hashes[archive]
+for member in members:
+    with zipfile.ZipFile(io.BytesIO(payload)) as handle:
+        payload = handle.read(member)
+print(row[&quot;formula&quot;], row[&quot;sites&quot;], payload.decode().splitlines()[:4])</code></pre>
+<p>完整重跑时按对应实验文档中的命令建立新输出目录。结构工具处理的问题各不相同：能读出 CIF 可以核查导出过程；元素集合、氧比例和空间群可以核查设计要求；MLIP/DFT 弛豫、相稳定性与声子计算才为相应物理主张提供后续证据。并列保存这些问题的输入和度量，可以让物理组在同一候选上接续验证。<a href="training_free_sampler.zh-CN.html">配对求解器</a> · <a href="training_free_control.zh-CN.html">化学体系和干预</a> · <a href="training_free_spacegroup.zh-CN.html">空间群复现</a> · <a href="results.zh-CN.html">基础样本分析</a></p>
+</section></main>
+</div>
+</body>
+</html>

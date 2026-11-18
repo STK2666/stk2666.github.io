@@ -1,0 +1,31 @@
+data_image0
+_chemical_formula_structural       NaCdNi4
+_chemical_formula_sum              "Na1 Cd1 Ni4"
+_cell_length_a       4.9214019469876655
+_cell_length_b       4.921911759584259
+_cell_length_c       4.923188209533691
+_cell_angle_alpha    60.08333768865038
+_cell_angle_beta     60.098665051977406
+_cell_angle_gamma    60.15163845020725
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Na  Na1       1.0  0.007097180467098958  0.5583299994468689  0.930267333984375  1.0000
+  Cd  Cd1       1.0  0.7575265169143677  0.3082449436187744  0.6799256205558776  1.0000
+  Ni  Ni1       1.0  0.3824290633201599  0.9332078099250793  0.8046857118606567  1.0000
+  Ni  Ni2       1.0  0.3825405240058899  0.43215349316596985  0.3055438995361328  1.0000
+  Ni  Ni3       1.0  0.38251712918281555  0.9332827329635621  0.30528822541236866  1.0000
+  Ni  Ni4       1.0  0.8815057277679443  0.9333992600440979  0.3055022060871124  1.0000

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>同一份随机初态，三种采样方法会生成什么晶体？</title>
+<link rel="stylesheet" href="assets/handbook.css">
+</head>
+<body>
+<header>
+<div class="handbook-nav">
+<a href="../index.html">← 交互预演</a>
+<span><a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/training_free_sampler.zh-CN.md">Markdown 原稿（课程仓库，需权限）</a>　·　<a href="../analysis/experiment_index.csv">样本索引</a></span>
+</div>
+<h1>同一份随机初态，三种采样方法会生成什么晶体？</h1>
+</header>
+<div class="layout">
+<nav id="TOC" aria-label="手册目录"><strong>目录</strong><ul>
+<li><a href="#一眼看懂实验" id="toc-一眼看懂实验">一眼看懂实验</a></li>
+<li><a href="#逐个种子的最终结构" id="toc-逐个种子的最终结构">逐个种子的最终结构</a></li>
+<li><a href="#固定采样器只换同样大小晶胞的噪声起点" id="toc-固定采样器只换同样大小晶胞的噪声起点">固定采样器，只换同样大小晶胞的噪声起点</a></li>
+<li><a href="#数学与代码依据" id="toc-数学与代码依据">数学与代码依据</a></li>
+<li><a href="#数据与复现" id="toc-数据与复现">数据与复现</a></li>
+</ul></nav>
+<main><p>在 hkust 的单张 RTX A6000（GPU 7）上，我们用同一份冻结的 MatterGen base 权重，比较了 3 个种子、每个种子 3 条真实生成轨迹。<strong>三个种子都得到三种不同的最终组成。</strong> 连续变量采用概率流 Euler 更新后，每级的分数坐标变化显著减小。改用仅含 ancestral predictor 的配置时，有 2 个种子的最终晶胞体积明显放大。全部比较使用未经弛豫的生成端点。以下结果刻画采样路径及几何差异；物理稳定性需要后续计算。</p>
+<section id="一眼看懂实验" class="level2">
+<h2>一眼看懂实验</h2>
+<p>同一行里的三条线从完全相同的原子数、元素掩码、分数坐标和晶格出发。向右是模型采样进度。第一列数还有多少位点的元素未定，第二列量每个原子分到的晶胞体积，第三列量连续两个噪声级之间的位置更新大小。第三列按约 50 个相邻级分箱求均值，纵轴为对数。橙色曲线在后两行超出常规绘图范围，这两行的体积也使用对数轴。</p>
+<figure>
+<img src="../analysis/training_free_sampler/paired_trajectories.png" alt="三个配对种子的真实采样轨迹" />
+<figcaption aria-hidden="true">三个配对种子的真实采样轨迹</figcaption>
+</figure>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>采样方法</th>
+<th>连续变量处理</th>
+<th style="text-align: right;">每个样本实测网络调用</th>
+<th style="text-align: right;">采样耗时中位数</th>
+<th style="text-align: right;">平均每级分数坐标 RMS 的跨种子中位数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PC</td>
+<td>官方 ancestral predictor，并在每一级做一次 Langevin 校正</td>
+<td style="text-align: right;">2,000</td>
+<td style="text-align: right;">66.62 s</td>
+<td style="text-align: right;">0.28076</td>
+</tr>
+<tr>
+<td>Ancestral only</td>
+<td>保留同一个 ancestral predictor，移除 Langevin 校正</td>
+<td style="text-align: right;">1,000</td>
+<td style="text-align: right;">31.04 s</td>
+<td style="text-align: right;">0.09136</td>
+</tr>
+<tr>
+<td>Hybrid PF Euler</td>
+<td>连续概率流漂移的一阶 Euler，分数坐标做周期包裹</td>
+<td style="text-align: right;">1,000</td>
+<td style="text-align: right;">30.47 s</td>
+<td style="text-align: right;">0.000324</td>
+</tr>
+</tbody>
+</table></div>
+<p>单卡九次采样用时合计 385.56 秒。计时包括网络推理、采样更新、每条原始记录的 CPU 拷贝及 GPU 同步。权重加载、一次预热、CIF 与绘图等文件输出在计时区间之外。三种方法的执行次序随种子轮换。减少一半网络调用可以解释相当一部分加速；两种 1,000 次调用的方法耗时相近。一个固定设备和三个种子的结果只宜作为本次演示的成本记录。</p>
+<p>混合 Euler 的小步更新累积成了可测的结构变化。按原始站点索引配对初态与独立 final，将每轴分数坐标差按周期折回后计算跨站点 RMS，种子 42、48、43 分别为 <strong>0.183、0.235、0.266</strong>。三个晶胞的体积也有变化，每原子体积分别从 <strong>28.26 → 16.39、20.84 → 27.83、23.27 → 25.08 Å³</strong>。这些数值量化起点到终点的净变化；完整路径的单步变化量见上表。九组的初始体积、终态体积、有符号体积变化和位点净位移均见<a href="../analysis/training_free_sampler/metrics.csv">逐样本数据</a>。</p>
+</section>
+<section id="逐个种子的最终结构" class="level2">
+<h2>逐个种子的最终结构</h2>
+<p>体积取原生晶胞行列式的绝对值除以站点数，单位为 Å³/atom。最短距离考虑周期镜像，包括同一站点的非零晶格平移。表内化学式记录该晶胞的元素计数。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th style="text-align: right;">种子</th>
+<th>采样方法</th>
+<th>最终组成</th>
+<th style="text-align: right;">每原子体积</th>
+<th style="text-align: right;">最近周期间距（Å）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">42</td>
+<td>PC</td>
+<td>Li₅Tl₂Pb</td>
+<td style="text-align: right;">20.03</td>
+<td style="text-align: right;">2.898</td>
+</tr>
+<tr>
+<td style="text-align: right;">42</td>
+<td>Ancestral only</td>
+<td>LiCu₂SiSe₄</td>
+<td style="text-align: right;">21.62</td>
+<td style="text-align: right;">2.314</td>
+</tr>
+<tr>
+<td style="text-align: right;">42</td>
+<td>Hybrid PF Euler</td>
+<td>Ta₄BMo₃</td>
+<td style="text-align: right;">16.39</td>
+<td style="text-align: right;">2.223</td>
+</tr>
+<tr>
+<td style="text-align: right;">48</td>
+<td>PC</td>
+<td>NdDyC</td>
+<td style="text-align: right;">24.81</td>
+<td style="text-align: right;">2.462</td>
+</tr>
+<tr>
+<td style="text-align: right;">48</td>
+<td>Ancestral only</td>
+<td>Rb₂Se</td>
+<td style="text-align: right;">1,550.08</td>
+<td style="text-align: right;">3.913</td>
+</tr>
+<tr>
+<td style="text-align: right;">48</td>
+<td>Hybrid PF Euler</td>
+<td>NdDyGa</td>
+<td style="text-align: right;">27.83</td>
+<td style="text-align: right;">3.022</td>
+</tr>
+<tr>
+<td style="text-align: right;">43</td>
+<td>PC</td>
+<td>Nd₂HoLu</td>
+<td style="text-align: right;">32.30</td>
+<td style="text-align: right;">3.528</td>
+</tr>
+<tr>
+<td style="text-align: right;">43</td>
+<td>Ancestral only</td>
+<td>Rb₃K</td>
+<td style="text-align: right;">1,233.09</td>
+<td style="text-align: right;">3.717</td>
+</tr>
+<tr>
+<td style="text-align: right;">43</td>
+<td>Hybrid PF Euler</td>
+<td>LiHoLuIn</td>
+<td style="text-align: right;">25.08</td>
+<td style="text-align: right;">3.117</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>适合课堂展示的一个镜头</strong>：选 seed 48，把三条轨迹对齐到同一噪声级。先让观众比较体积曲线，然后打开各方法独立保存的 final。Ancestral only 的晶胞三个边长约为 185–190 Å，原生晶格矩阵的条件数为 159，同组 PC 和 Hybrid PF 的条件数分别为 2.54 和 2.25。最近周期间距仅提供局部几何信息，这个例子里最醒目的差异来自晶胞的整体形状与体积。后续可把同一个 CIF 交给材料组员评估。每个种子的初态从头抽取，采用下述成对随机流设置，编号与先前生成库共享 seed 不代表最终材料相同。</p>
+</section>
+<section id="固定采样器只换同样大小晶胞的噪声起点" class="level2">
+<h2>固定采样器，只换同样大小晶胞的噪声起点</h2>
+<p>原先三个种子对应 8、3、4 个位点，种子同时决定后续随机流。为隔离噪声起点，我们再次运行全部三种采样器。每条轨迹均用 base 权重、8 个位点、全 MASK、空性质条件、相同的 1,000 个噪声级。只在从先验抽取分数坐标与晶格时改变 seed（142、143、148）。每次反向采样前重置连续 RNG 为 10042、离散 RNG 为 20042。同一采样器的起点比较使用相同的随机数安排，跨采样器时各更新规则对连续随机数的消耗方式会改变。运行采用一张 RTX A6000，batch size 为 1。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th style="text-align: right;">初态种子</th>
+<th>默认 PC</th>
+<th>仅祖先预测</th>
+<th>混合概率流</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">142</td>
+<td>LiTl₅Sn₂ · 28.25</td>
+<td>TlCu₂SiSe₄ · 24.30</td>
+<td>CsTl₃Sn₂Pb₂ · 34.64</td>
+</tr>
+<tr>
+<td style="text-align: right;">143</td>
+<td>Sm₂Cu₂Si₄ · 17.61</td>
+<td>Tl₂Cu₄S₂ · 19.40</td>
+<td>Ta₄Mo₄ · 17.13</td>
+</tr>
+<tr>
+<td style="text-align: right;">148</td>
+<td>Li₂Pb₆ · 28.36</td>
+<td>Tl₂Cu₂Se₄ · 25.87</td>
+<td>LiCu₂SiS₄ · 18.41</td>
+</tr>
+</tbody>
+</table></div>
+<p>单元格给出独立终态的晶胞组成与每位点体积（Å³）。纵向看，同一 PC 下，142 与 148 的体积相近（28.25、28.36 Å³），两者的组成为 LiTl₅Sn₂ 与 Li₂Pb₆。143 给出 Sm₂Cu₂Si₄，体积为 17.61 Å³。三者保持了 8 个位点，终态均无 MASK，最后一个 MASK 消失的层级分别为 879、919、838。横向看，同一 143 初态改换求解器得到另外两种组成。两种读法回答独立问题。小样本可展示多样性，无法估计这些化合物在模型分布中的概率或物理稳定性。<a href="../analysis/training_free_sampler_fixed_n/metrics.csv">九个终态指标</a> · <a href="../analysis/training_free_sampler_fixed_n/levels.csv">9,000 个噪声级</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler_fixed_n/experiment.json">权重与随机流元数据（课程仓库，需权限）</a></p>
+<figure>
+<img src="../analysis/training_free_sampler_fixed_n/paired_trajectories.png" alt="固定 8 位点、固定反向随机种子下的三组采样轨迹" />
+<figcaption aria-hidden="true">固定 8 位点、固定反向随机种子下的三组采样轨迹</figcaption>
+</figure>
+<p>原生记录每条为 2,000（PC）或 1,000（另外两种），共 12,000 条，另存每条的独立终态。前端以 51 个对齐的存档时刻播放晶胞，曲线保留每个噪声级的第一条记录。三种初态的分数坐标与晶格均不同。原生张量按种子跨三种求解器逐字段一致；保存的 CIF 与独立终态在组分、晶格参数和周期距离上通过检查。以下命令在个人目录内执行。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler_fixed_n/runner.log">执行日志（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/runner.py">原批次脚本快照（课程仓库，需权限）</a></p>
+<pre class="bash"><code>CUDA_VISIBLE_DEVICES=6 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1 \
+  external/mattergen/.venv/bin/python scripts/run_paired_samplers.py \
+  --weights external/models/checkpoints/mattergen_base --output runs/fixed_prior_8 \
+  --seeds 142 143 148 --fixed-sites 8 --reverse-seed 42
+external/mattergen/.venv/bin/python scripts/analyze_paired_samplers.py runs/fixed_prior_8</code></pre>
+</section>
+<section id="数学与代码依据" class="level2">
+<h2>数学与代码依据</h2>
+<p>官方配置用 1,000 个噪声级，时间从 1 递减到 0.001，每次更新取 Δt = −0.001，最后一次更新落到 0。官方 PC 先更新连续 corrector，再计算三类变量的 predictor。类别使用官方 D3PM 反向后验的分类采样，模型输出 logits。两个消融均保留全部 1,000 次类别更新。三个方法用相同的噪声级网格，本实验比较的是每级的<strong>更新规则</strong>。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/sampling_conf/default.yaml">官方采样配置</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/sampling/pc_sampler.py">采样循环</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/d3pm/d3pm_predictors_correctors.py">官方类别更新</a></p>
+<p>在固定原子数下，所用连续分量的扩散幅值与时间和原子数有关。对于这些坐标的前向 SDE，漂移为 f，扩散幅值为 g，模型估计的数据分数为 sθ。混合分支用下式沿时间递减方向更新坐标与晶胞：</p>
+<pre class="text"><code>x_next = x + Δt [ f(x,t) − ½ g(t)² sθ(x,element_state,t) ]</code></pre>
+<p>分数坐标使用按原子数缩放的 wrapped VE 系数，以及模型转换到分数坐标系的 score。每次更新用模 1 回到周期单元。晶胞使用 lattice VP 的以原子数为条件的极限均值、方差和对称晶胞噪声表示，沿独立的对称分量更新。没有对元素类别连续插值。类别 logits 仍依赖当前几何，即使给三种方法相同的分类随机数，元素也可能在不同时间确定并产生不同的组成。这个实现是连续概率流与 D3PM 的混合数值实验，整条轨迹仍有离散采样随机性。连续理论对精确 score 的结果，并不能证明这里的有限步、混合变量和估计 score 与原模型具有相同终点分布。<a href="https://arxiv.org/abs/2011.13456">概率流 ODE</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/diffusion/corruption.py">晶体 SDE 实现</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/scripts/run_paired_samplers.py">本文实现（课程仓库，需权限）</a></p>
+<p><strong>配对随机性。</strong> 原子数取自官方 ALEX_MP_20 分布，每个种子用官方 prior 生成一次初态，三种方法分别读取独立克隆。先核对每条轨迹的第一条原始记录与 prior 的 SHA-256，再从下载的 NPZ 对每个连续分量和类别逐值校验。连续更新的随机种子为 seed + 10,000，类别更新使用独立 CUDA RNG 流，种子为 seed + 20,000，每次调用恢复官方 D3PM predictor，之后恢复连续 RNG 的状态。PC 与 ancestral 的连续步骤消耗不同数量的随机数，配对控制的是共同初态和类别随机流。正因这一随机流约定，PC 的名称表示采用官方 PC 更新规则。这些是本实验的独立结果集。</p>
+<p><strong>量化与核验。</strong> 位置更新量先将每个站点每个分数坐标分量的差映射到 [−0.5, 0.5)，再对三轴分量平方求和、跨站点平均并开根号，最后跨相邻的 999 个噪声级取均值。该量无单位，对分数坐标的跨界表示稳健。在斜晶胞中，以 Å 表示的最短实空间位移有不同定义。该量衡量算法轨迹的视觉平滑度，不能决定晶体的能量、动力学稳定性或生成分布的质量。对齐点取每个噪声级<strong>更新前</strong>的状态，PC 同时保留了该级校正后的原始记录。端点统一取最后一次 predictor 的独立 mean，按官方约定离散维度取最大后验类别。9 个 CIF 回读后逐项核对了组成、晶格边长和角度、按元素对分组的所有周期站点距离，再校验各文件 SHA-256。极斜晶胞的 float32 边长/角度重建会产生可测误差，9 个样本中最大的距离差为 0.000252 Å（seed 48 ancestral）。另有两个解析测试检查平稳高斯晶胞的零概率流，以及周期坐标的噪声缩放和越界包裹。</p>
+</section>
+<section id="数据与复现" class="level2">
+<h2>数据与复现</h2>
+<ul>
+<li><a href="../analysis/training_free_sampler/metrics.csv">所有样本的终态指标</a> · <a href="../analysis/training_free_sampler/levels.csv">9,000 个对齐的每级指标</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/experiment.json">实测环境及模型哈希（课程仓库，需权限）</a> · <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/base_sampling.yaml">默认配置快照（课程仓库，需权限）</a></li>
+<li>每个 <code>seed{seed}_{mode}/</code> 文件夹包含原生全轨迹 <code>trajectory.npz</code>、独立 <code>final.cif</code>、运行记录 <code>result.json</code> 和精简前端数据 <code>display.json</code>。示例见 <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/training_free_sampler/seed48_hybrid_pf/display.json">seed 48 混合采样展示帧（课程仓库，需权限）</a> 和 <a href="../analysis/training_free_sampler/seed48_ancestral/final.cif">seed 48 大体积端点 CIF</a>。</li>
+<li><code>display.json</code> 的 <code>frames</code> 有 51 个按共同噪声级抽取的观测，<code>final</code> 为独立终态。坐标为分数坐标，原生晶格是 Å 单位行向量，笛卡尔投影使用 <code>frac_coords @ cell</code>。原始 101 表示未解掩码。数据保留拟合轨迹的独立位点顺序，动画是算法状态序列。</li>
+<li>生成及分析命令在 <code>members/tk/</code> 执行，使用原有的 <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/reproduce.md">MatterGen 推理环境（课程仓库，需权限）</a>。指定一个新的输出目录可以保留已有结果。同一算法、种子及相匹配的硬件和依赖可用于复测。模型、代码版本、设备与随机种子已经记录；GPU 并行归约可能存在舍入差异。</li>
+</ul>
+<pre class="bash"><code>CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 \
+  external/mattergen/.venv/bin/python scripts/run_paired_samplers.py \
+  --weights external/models/checkpoints/mattergen_base \
+  --output runs/sampler_pair_reproduction --seeds 42 48 43
+
+external/mattergen/.venv/bin/python scripts/analyze_paired_samplers.py runs/sampler_pair_reproduction
+external/mattergen/.venv/bin/python -m pytest -q tests/test_probability_flow_sampler.py</code></pre>
+</section></main>
+</div>
+</body>
+</html>

@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       Dy2PTe
+_chemical_formula_sum              "Dy2 P1 Te1"
+_cell_length_a       4.074214568191205
+_cell_length_b       4.073817752410245
+_cell_length_c       7.592639923095703
+_cell_angle_alpha    74.49847142403023
+_cell_angle_beta     74.43857021973206
+_cell_angle_gamma    60.04727485410313
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Dy  Dy1       1.0  0.24105811119079593  0.7550747990608214  0.9389481544494628  1.0000
+  Dy  Dy2       1.0  0.43541643023490906  0.9493736028671265  0.3563384115695953  1.0000
+  P   P1        1.0  0.8364870548248291  0.3503364324569702  0.15289475023746493  1.0000
+  Te  Te1       1.0  0.005233156494796265  0.5191068649291992  0.6466152667999268  1.0000

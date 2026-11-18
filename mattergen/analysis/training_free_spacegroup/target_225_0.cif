@@ -1,0 +1,33 @@
+data_image0
+_chemical_formula_structural       LaF2NiF4
+_chemical_formula_sum              "La1 F6 Ni1"
+_cell_length_a       5.959865055527215
+_cell_length_b       5.952045127370204
+_cell_length_c       5.960160255432129
+_cell_angle_alpha    59.97679637673303
+_cell_angle_beta     59.96475874813093
+_cell_angle_gamma    60.01173028333387
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  La  La1       1.0  0.17699953913688665  0.8011890053749083  0.07686210423707962  1.0000
+  F   F1        1.0  0.9029385447502136  0.07455108314752577  0.8037642240524292  1.0000
+  F   F2        1.0  0.4507049024105072  0.5278644561767578  0.3504065275192261  1.0000
+  Ni  Ni1       1.0  0.6770473122596741  0.30118405818939203  0.5766994953155518  1.0000
+  F   F3        1.0  0.4505169689655304  0.07460565119981766  0.8030504584312439  1.0000
+  F   F4        1.0  0.4504292607307434  0.5273832678794861  0.8033443093299866  1.0000
+  F   F5        1.0  0.9036912322044373  0.5275098085403442  0.3505955934524536  1.0000
+  F   F6        1.0  0.9033974409103394  0.07492370158433914  0.35025683045387257  1.0000

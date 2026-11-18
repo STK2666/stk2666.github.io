@@ -1,0 +1,33 @@
+data_image0
+_chemical_formula_structural       InTmF6
+_chemical_formula_sum              "In1 Tm1 F6"
+_cell_length_a       6.014095870355111
+_cell_length_b       6.006022793363828
+_cell_length_c       6.018113613128662
+_cell_angle_alpha    59.88272839846386
+_cell_angle_beta     59.86777665496809
+_cell_angle_gamma    59.95185592030228
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  In  In1       1.0  0.22795942425727844  0.0030062543228268628  0.6515980362892151  1.0000
+  Tm  Tm1       1.0  0.7279743552207947  0.5030337572097778  0.15122589468955994  1.0000
+  F   F1        1.0  0.980415403842926  0.25033229589462286  0.8991319537162781  1.0000
+  F   F2        1.0  0.47547203302383423  0.755890727043152  0.8983668088912964  1.0000
+  F   F3        1.0  0.4750400185585022  0.25059187412261963  0.4041023254394531  1.0000
+  F   F4        1.0  0.9804089665412903  0.25057607889175415  0.4040732979774474  1.0000
+  F   F5        1.0  0.47529637813568104  0.7560291290283204  0.40368449687957764  1.0000
+  F   F6        1.0  0.9808506369590759  0.7555956244468689  0.8986117243766785  1.0000

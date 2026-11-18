@@ -1,0 +1,431 @@
+/* Scoped styling for measured, offline experiment views. */
+.experiment-view {
+  --xp-text: #19211f;
+  --xp-muted: #485753;
+  --xp-rule: #d6dedb;
+  --xp-soft: #f6f8f7;
+  --xp-teal: #006c65;
+  --xp-rust: #a25130;
+  color: var(--xp-text);
+  font: inherit;
+  min-width: 0;
+  line-height: 1.45;
+}
+.experiment-view * {
+  box-sizing: border-box;
+}
+.experiment-view button,
+.experiment-view select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--xp-text);
+  background: #fff;
+  border: 1px solid #bac7c1;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  line-height: 1.35;
+  min-height: 32px;
+  letter-spacing: 0;
+}
+.experiment-view button:hover,
+.experiment-view select:hover {
+  background: #f2f6f4;
+  border-color: #627770;
+}
+.experiment-view :is(button, select, input, a):focus-visible {
+  outline: 2px solid var(--xp-teal);
+  outline-offset: 3px;
+}
+.experiment-view button[aria-pressed="true"] {
+  color: white;
+  background: #203e36;
+  border-color: #203e36;
+}
+.experiment-view button:disabled,
+.experiment-view select:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.experiment-view .xp-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--xp-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.experiment-view select {
+  width: auto;
+  max-width: none;
+}
+.experiment-view .xp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 22px;
+  margin: 5px 0 16px;
+}
+.experiment-view .xp-toolbar output {
+  font-variant-numeric: tabular-nums;
+}
+.experiment-view .xp-spacer {
+  margin-left: auto;
+}
+.experiment-view .xp-views {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--xp-soft);
+  border-block: 1px solid var(--xp-rule);
+}
+.experiment-view .xp-case {
+  margin: 0;
+  padding: 14px 15px 12px;
+  min-width: 0;
+}
+.experiment-view .xp-case + .xp-case {
+  border-left: 1px solid var(--xp-rule);
+}
+.experiment-view .xp-case header {
+  display: flex;
+  align-items: center;
+  min-height: 27px;
+  gap: 7px;
+  flex-wrap: wrap;
+  position: static;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border: 0;
+  color: inherit;
+}
+.experiment-view .xp-title {
+  margin: 0;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--xp-text);
+}
+.experiment-view .xp-small-label {
+  font-size: 11px;
+  color: var(--xp-muted);
+  line-height: 1.4;
+}
+.experiment-view .xp-chip {
+  display: block;
+  width: 18px;
+  height: 3px;
+  background: var(--xp-method);
+  flex-shrink: 0;
+}
+.experiment-view .xp-crystal {
+  display: block;
+  width: 100%;
+  height: 165px;
+  background: transparent;
+  cursor: grab;
+  touch-action: pan-y;
+  border: 0;
+}
+.experiment-view .xp-crystal:active {
+  cursor: grabbing;
+}
+.experiment-view .xp-meta {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid var(--xp-rule);
+  padding-top: 9px;
+  min-height: 61px;
+}
+.experiment-view .xp-formula {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.experiment-view .xp-values,
+.experiment-view .xp-swatch-list,
+.experiment-view .xp-note {
+  font-size: 12px;
+  color: var(--xp-muted);
+  font-variant-numeric: tabular-nums;
+}
+.experiment-view .xp-note {
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+.experiment-view .xp-swatch-list {
+  display: flex;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+}
+.experiment-view .xp-swatch-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.experiment-view .xp-swatch-list i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(35, 41, 39, 0.28);
+}
+.experiment-view a {
+  color: #174e45;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.experiment-view .xp-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  gap: 5px;
+}
+.experiment-view .xp-links a {
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.3;
+}
+.experiment-view .xp-playback {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 15px 0;
+  min-height: 35px;
+}
+.experiment-view input[type="range"] {
+  flex: 1;
+  width: auto;
+  min-width: 38px;
+  accent-color: var(--xp-teal);
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.experiment-view .xp-playback output {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--xp-muted);
+  min-width: 65px;
+}
+.experiment-view .xp-section-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 15px 0 2px;
+}
+.experiment-view .xp-section-top strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.experiment-view .xp-chart {
+  display: block;
+  width: 100%;
+  height: 148px;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.experiment-view .xp-chart .xp-grid {
+  stroke: #e4e9e6;
+  stroke-width: 1;
+}
+.experiment-view .xp-chart text {
+  font-size: 10px;
+  fill: var(--xp-muted);
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.experiment-view .xp-chart path,
+.experiment-view .xp-chart polyline {
+  fill: none;
+  stroke-linejoin: round;
+}
+.experiment-view .xp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--xp-text);
+  margin: 12px 0 2px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+.experiment-view .xp-table :is(th, td) {
+  border: 0;
+  border-bottom: 1px solid var(--xp-rule);
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: inherit;
+  background: transparent;
+}
+.experiment-view .xp-table th {
+  font-weight: 600;
+  color: var(--xp-muted);
+}
+.experiment-view .xp-table th:first-child {
+  width: auto;
+}
+.experiment-view .xp-table tr[data-current="true"] {
+  background: #eef4f0;
+}
+.experiment-view .xp-hit {
+  font-weight: 600;
+  color: var(--xp-teal);
+}
+.experiment-view .xp-miss {
+  color: #7d4731;
+}
+.experiment-view .xp-foot {
+  font-size: 11px;
+  color: var(--xp-muted);
+  margin-top: 8px;
+}
+.experiment-view .xp-selection {
+  font-size: 12px;
+  color: var(--xp-muted);
+}
+@media (max-width: 680px) {
+  .experiment-view .xp-case {
+    padding: 8px 6px;
+  }
+  .experiment-view .xp-case header {
+    gap: 4px;
+    align-content: flex-start;
+    min-height: 39px;
+  }
+  .experiment-view .xp-case .xp-title {
+    font-size: 12px;
+  }
+  .experiment-view .xp-formula {
+    font-size: 14px;
+  }
+  .experiment-view .xp-crystal {
+    height: 125px;
+  }
+  .experiment-view .xp-meta {
+    gap: 2px;
+  }
+  .experiment-view .xp-chart {
+    height: 145px;
+  }
+  .experiment-view .xp-toolbar {
+    gap: 8px 11px;
+  }
+  .experiment-view .xp-small-label,
+  .experiment-view .xp-values {
+    font-size: 11px;
+  }
+  .experiment-view .xp-playback {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .experiment-view .xp-playback button,
+  .experiment-view button,
+  .experiment-view select {
+    padding: 5px 7px;
+    font-size: 12px;
+  }
+  .experiment-view .xp-spacer {
+    margin-left: 0;
+  }
+  .experiment-view .xp-section-top {
+    flex-wrap: wrap;
+  }
+  .experiment-view .xp-swatch-list {
+    gap: 2px 6px;
+    font-size: 10px;
+  }
+  .experiment-view .xp-table :is(th, td) {
+    font-size: 11px;
+    padding: 5px 4px;
+  }
+}
+
+.experiment-view .xp-insight {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--xp-text);
+}
+
+.experiment-view [hidden] {
+  display: none !important;
+}
+.experiment-view .xp-comparison-switch {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0 14px;
+}
+.experiment-view .xp-comparison-switch button {
+  min-height: 38px;
+  padding-inline: 13px;
+  font-weight: 600;
+}
+
+.experiment-view .xp-gamma-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.experiment-view button[data-gamma] {
+  padding: 9px 7px;
+  text-align: left;
+}
+.experiment-view button[data-gamma] > strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.experiment-view .xp-gamma-result {
+  display: block;
+  text-align: left;
+  font-size: 12px;
+  min-height: 22px;
+  overflow-wrap: anywhere;
+}
+.experiment-view .xp-composition {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin: 2px 0 5px;
+  background: #dce5df;
+}
+.experiment-view .xp-composition b {
+  display: block;
+  height: 100%;
+  background: #477667;
+}
+.experiment-view [aria-pressed="true"] .xp-composition {
+  background: #4a6059;
+}
+.experiment-view [aria-pressed="true"] .xp-composition b {
+  background: #c8edd8;
+}
+.experiment-view .xp-gamma-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.experiment-view .xp-gamma-caption {
+  color: var(--xp-muted);
+  font-size: 12px;
+}
+@media (max-width: 480px) {
+  .experiment-view .xp-gamma-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .experiment-view .xp-gamma-grid button {
+    padding: 6px 4px;
+  }
+}

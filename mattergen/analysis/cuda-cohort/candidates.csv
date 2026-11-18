@@ -1,0 +1,9 @@
+candidate_id,run_id,data_kind,seed,sample_index,formula,final_num_atoms,final_num_elements,final_volume_per_atom_angstrom3,raw_frame_count,exported_frame_count,raw_min_atoms,raw_max_atoms,intermediate_frames_with_Z0,intermediate_frames_with_mask,intermediate_frames_with_unresolved,bundle_check_passed,scientific_validation
+tk-cuda-seed42,seed42_attempt01,model_generated,42,0,F6InTm,8,3,19.170505795221843,2000,120,8,8,0,1690,1690,True,pending
+tk-cuda-seed43,seed43_attempt01,model_generated,43,0,CoLu2Pd,4,3,18.925966172597274,2000,120,4,4,0,1890,1890,True,pending
+tk-cuda-seed44,seed44_attempt01,model_generated,44,0,N10Sm4,14,2,15.16190802461752,2000,120,14,14,0,1684,1684,True,pending
+tk-cuda-seed45,seed45_attempt01,model_generated,45,0,B4Ga2RhRu9Sc4,20,5,13.279337173786601,2000,120,20,20,0,1810,1810,True,pending
+tk-cuda-seed46,seed46_attempt01,model_generated,46,0,Ca2Rb3Te6Zr,12,4,37.36954421130104,2000,120,12,12,0,1890,1890,True,pending
+tk-cuda-seed47,seed47_attempt01,model_generated,47,0,HGaPdRh,4,4,11.913389619683755,2000,120,4,4,0,1442,1442,True,pending
+tk-cuda-seed48,seed48_attempt01,model_generated,48,0,Cu2Pd,3,2,13.004815672641636,2000,120,3,3,0,1864,1864,True,pending
+tk-cuda-seed49,seed49_attempt01,model_generated,49,0,CdNaNi4,6,3,14.089495280474418,2000,120,6,6,0,1716,1716,True,pending

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>为什么同一个晶体初态会生成不同的候选？</title>
+<link rel="stylesheet" href="assets/handbook.css">
+</head>
+<body>
+<header>
+<div class="handbook-nav">
+<a href="../index.html">← 交互预演</a>
+<span><a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/diffusion_design_space.zh-CN.md">Markdown 原稿（课程仓库，需权限）</a>　·　<a href="../analysis/experiment_index.csv">样本索引</a></span>
+</div>
+<h1>为什么同一个晶体初态会生成不同的候选？</h1>
+</header>
+<div class="layout">
+<nav id="TOC" aria-label="手册目录"><strong>目录</strong><ul>
+<li><a href="#在训练时固定了什么" id="toc-在训练时固定了什么">1. 在训练时固定了什么？</a></li>
+<li><a href="#三类变量的起点意味着什么" id="toc-三类变量的起点意味着什么">2. 三类变量的起点意味着什么？</a></li>
+<li><a href="#把像-ddim-的-ode写成可检验的实验" id="toc-把像-ddim-的-ode写成可检验的实验">3. 把“像 DDIM 的 ODE”写成可检验的实验</a></li>
+<li><a href="#与图像扩散掩码扩散和扩散语言模型比较" id="toc-与图像扩散掩码扩散和扩散语言模型比较">4. 与图像扩散、掩码扩散和扩散语言模型比较</a></li>
+</ul></nav>
+<main><p>MatterGen 把一个晶胞写成 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>F</mi><mo>,</mo><mi>L</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">X=(A,F,L)</annotation></semantics></math>：<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math> 是离散元素，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>F</mi><annotation encoding="application/x-tex">F</annotation></semantics></math> 是周期分数坐标，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math> 是晶胞矩阵。三个变量共用去噪网络和噪声时刻。实验改变的是带噪状态如何走向下一步，或条件如何改变这一步的预测。以下用 EDM 的设计维度逐项分析项目固定版本，再讨论哪些图像扩散方法能够迁移到晶体。<a href="https://arxiv.org/abs/2312.03687">MatterGen 论文</a> · <a href="https://arxiv.org/abs/2206.00364">EDM 论文</a></p>
+<section id="在训练时固定了什么" class="level2">
+<h2>1. 在训练时固定了什么？</h2>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>设计选择</th>
+<th>MatterGen 中的具体含义</th>
+<th>为什么会影响轨迹</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据空间和尺度</td>
+<td>给定站点数 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>，元素取类别，分数坐标位于三维环面，晶格在选定取向后用对称矩阵描述。</td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.99</mn><mo>→</mo><mn>0.01</mn></mrow><annotation encoding="application/x-tex">0.99\rightarrow0.01</annotation></semantics></math> 的一个分数坐标变化可以只跨过 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.02</mn><annotation encoding="application/x-tex">0.02</annotation></semantics></math> 个周期。比较相邻帧要先消除跨边界跳变。</td>
+</tr>
+<tr>
+<td>加噪路径 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>X</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>X</mi><mn>0</mn></msub><mo>,</mo><mi>n</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">q(X_t\mid X_0,n)</annotation></semantics></math></td>
+<td>元素采用有吸收态的离散链，位置采用 wrapped VE，晶格采用向指定均值回归的 VP。给定干净结构后，各字段分别采样扰动。</td>
+<td>三个变量有不同的终点分布。晶体图上的一个共享网络学习它们在数据中的关联。</td>
+</tr>
+<tr>
+<td>网络参数化和损失</td>
+<td>位置与晶格学习“score × 边际标准差”，推理时除以对应标准差。元素预测干净类别的 logits，通过 D3PM 后验更新。base 的位置、晶格和元素损失权重为 0.1、1、1，离散混合损失系数为 0.01。</td>
+<td>改采样器前要先把网络输出还原为该求解器需要的量。位置用周期密度的梯度，类别用概率分布。</td>
+</tr>
+<tr>
+<td>采样时的选择</td>
+<td>官方线性时间网格共 1,000 级，默认连续变量先做一次 Langevin corrector，再做 ancestral predictor；元素只做 ancestral predictor。</td>
+<td>在同一组冻结权重上可改变连续步的随机性、更新次数和积分器。改变类别时间步需要相应的多步转移。</td>
+</tr>
+</tbody>
+</table></div>
+<p>EDM 还讨论训练噪声分布、损失加权、输入输出预条件、采样噪声网格、数值积分与额外随机噪声等可分开的设计选择。EDM 论文中的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ρ</mi><annotation encoding="application/x-tex">\rho</annotation></semantics></math> 网格、Heun 二阶积分和 <span class="math inline">$c_{\rm skip},c_{\rm out},c_{\rm in}$</span> 参数化属于它提供的具体方案。MatterGen 使用上表的逐字段目标和 PC 配置。本项目采用 EDM 的分析视角，实验保留已训练的模型目标与噪声范围。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/checkpoints/mattergen_base/config.yaml">base 配置</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/loss.py">MaterialsLoss</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/sampling_conf/default.yaml">默认采样器</a></p>
+</section>
+<section id="三类变量的起点意味着什么" class="level2">
+<h2>2. 三类变量的起点意味着什么？</h2>
+<ul>
+<li><strong>元素。</strong> 设 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>K</mi><mo>=</mo><mn>1000</mn></mrow><annotation encoding="application/x-tex">K=1000</annotation></semantics></math>。前向第 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math> 次转移（从 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">k=0</annotation></semantics></math> 计）将尚未遮住的元素以 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><mo>−</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">1/(K-k)</annotation></semantics></math> 的概率改成 MASK；已经遮住的元素保留 MASK。因此经过 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math> 次正向转移，单个位点被遮住的概率是 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>j</mi><mi>/</mi><mi>K</mi></mrow><annotation encoding="application/x-tex">j/K</annotation></semantics></math>。生成从全 MASK 开始，由网络预测干净元素分布，再结合当前状态和离散后验抽样。八个站点的单条轨迹可以在某一段一个元素都没有揭开。某一帧的 MASK 占比也无法用来估计候选的物理可信度。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/d3pm/d3pm.py">掩码转移率</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/d3pm/d3pm_predictors_correctors.py">反向元素采样</a></li>
+<li><strong>位置。</strong> 前向边际可写为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>t</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>F</mi><mn>0</mn></msub><mo>+</mo><msub><mi>σ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mi>ϵ</mi><mo stretchy="false" form="postfix">)</mo><mrow><mspace width="0.222em"></mspace><mrow><mi mathvariant="normal">mod</mi><mo>&#8289;</mo></mrow><mspace width="0.222em"></mspace><mn>1</mn></mrow></mrow><annotation encoding="application/x-tex">F_t=(F_0+\sigma_n(t)\epsilon)\bmod 1</annotation></semantics></math>，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>σ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msup><mi>n</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>3</mn></mrow></msup><mspace width="0.167em"></mspace><mn>0.01</mn><mo stretchy="false" form="prefix">(</mo><mn>5</mn><mi>/</mi><mn>0.01</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>t</mi></msup></mrow><annotation encoding="application/x-tex">\sigma_n(t)=n^{-1/3}\,0.01(5/0.01)^t</annotation></semantics></math>。高噪声时一个位点可以跨越多个晶胞周期，例如 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">n=8</annotation></semantics></math> 时 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">t=1</annotation></semantics></math> 的标准差为 2.5 个分数坐标周期。模型实际以高斯采样、缩放并取模实现位置先验。反向位置更新后同样要回到周期区间。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/diffusion/corruption.py">晶体专用 SDE</a> · <a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/wrapped/wrapped_predictors_correctors.py">周期更新</a></li>
+<li><strong>晶格。</strong> 令 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>μ</mi><mi>n</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mi>/</mi><mn>0.0577145</mn><msup><mo stretchy="false" form="postfix">)</mo><mrow><mn>1</mn><mi>/</mi><mn>3</mn></mrow></msup><mi>I</mi></mrow><annotation encoding="application/x-tex">\mu_n=(n/0.0577145)^{1/3}I</annotation></semantics></math>、<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>v</mi><mi>n</mi></msub><mo>=</mo><mn>0.25</mn><msup><mi>n</mi><mrow><mn>2</mn><mi>/</mi><mn>3</mn></mrow></msup></mrow><annotation encoding="application/x-tex">v_n=0.25n^{2/3}</annotation></semantics></math>、<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.1</mn><mo>+</mo><mn>19.9</mn><mi>t</mi></mrow><annotation encoding="application/x-tex">\beta(t)=0.1+19.9t</annotation></semantics></math>。前向均值从 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>L</mi><mn>0</mn></msub><annotation encoding="application/x-tex">L_0</annotation></semantics></math> 向 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mi>n</mi></msub><annotation encoding="application/x-tex">\mu_n</annotation></semantics></math> 回归，边际方差向 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>v</mi><mi>n</mi></msub><annotation encoding="application/x-tex">v_n</annotation></semantics></math> 接近；源码直接从该极限分布采样初始晶格。对称噪声让 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>L</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><annotation encoding="application/x-tex">L_{ij}</annotation></semantics></math> 与 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>L</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">L_{ji}</annotation></semantics></math> 成对变化。若有八个站点，先验中心的边长约 5.18 Å，独立矩阵分量的标准差为 1 Å。这个中心表达训练集的密度尺度，生成的晶格仍可偏离立方形状。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/common/diffusion/corruption.py">晶格 VP 与先验构造</a></li>
+</ul>
+</section>
+<section id="把像-ddim-的-ode写成可检验的实验" class="level2">
+<h2>3. 把“像 DDIM 的 ODE”写成可检验的实验</h2>
+<p>对一个连续字段，若前向动力学为 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mi>x</mi><mo>=</mo><mi>f</mi><mspace width="0.167em"></mspace><mi>d</mi><mi>t</mi><mo>+</mo><mi>G</mi><mspace width="0.167em"></mspace><mi>d</mi><mi>W</mi></mrow><annotation encoding="application/x-tex">dx=f\,dt+G\,dW</annotation></semantics></math>，<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>D</mi><mo>=</mo><mi>G</mi><msup><mi>G</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">D=GG^\top</annotation></semantics></math> 与该字段的当前位置无关，且 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>s</mi><mi>θ</mi></msub><annotation encoding="application/x-tex">s_\theta</annotation></semantics></math> 估计相应分数，在从高噪声走向低噪声的时间坐标中可写出</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"><mtext mathvariant="normal">反向 SDE:</mtext><mspace width="1.0em"></mspace></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mi>d</mi><mi>x</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>f</mi><mo>−</mo><mi>D</mi><msub><mi>s</mi><mi>θ</mi></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>d</mi><mi>t</mi><mo>+</mo><mi>G</mi><mspace width="0.167em"></mspace><mi>d</mi><mover><mi>W</mi><mo accent="true">‾</mo></mover><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"><mtext mathvariant="normal">概率流 ODE:</mtext><mspace width="1.0em"></mspace></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mi>d</mi><mi>x</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>f</mi><mo>−</mo><mstyle displaystyle="false"><mfrac><mn>1</mn><mn>2</mn></mfrac></mstyle><mi>D</mi><msub><mi>s</mi><mi>θ</mi></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>d</mi><mi>t</mi><mo>,</mo><mspace width="2.0em"></mspace><mi>d</mi><mi>t</mi><mo>&lt;</mo><mn>0</mn><mi>.</mi></mtd></mtr></mtable><annotation encoding="application/x-tex">
+\begin{aligned}
+\text{反向 SDE:}\quad &amp; dx=(f-Ds_\theta)\,dt+G\,d\bar W, \\
+\text{概率流 ODE:}\quad &amp; dx=(f-\tfrac12Ds_\theta)\,dt,\qquad dt&lt;0.
+\end{aligned}
+</annotation></semantics></math></p>
+<p>关键的实现差别在 score 前的 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">1/2</annotation></semantics></math>。对于位置，用 wrapped VE 的扩散系数并在一步后取模；对于晶格，使用回归 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mi>n</mi></msub><annotation encoding="application/x-tex">\mu_n</annotation></semantics></math> 的漂移、晶格自己的扩散系数和对称矩阵表示。对元素，保留 1,000 次 D3PM 后验抽样。这样得到的第三组是 <strong>连续字段概率流 Euler + 离散随机更新</strong>。在理想连续模型中，匹配的概率流 ODE 与 SDE 可以有相同的边际分布；这条结论不要求逐样本终点相同，也不证明有限步混合晶体采样达到相同物理质量。<a href="https://arxiv.org/abs/2011.13456">Score SDE</a> · <a href="https://arxiv.org/abs/2010.02502">DDIM</a></p>
+<p>三组比较各有不同的解读。<strong>官方 PC 对 ancestral-only</strong> 检验一次 Langevin 校正及其额外模型调用带来的变化。<strong>ancestral-only 对混合概率流</strong> 使用同样的噪声时刻和模型调用预算，比较连续积分规则。<strong>跨随机种子</strong> 检查观察结果是否只出现在某一个初态。共同类别随机数只是配对手段，连续几何分叉后就会产生不同类别 logits，最终元素也可以分叉。<a href="https://github.com/microsoft/mattergen/blob/92423660a8bd70e83679086e88f88596d484dc16/mattergen/diffusion/sampling/pc_sampler.py">官方采样顺序</a></p>
+<p>DDIM 在连续高斯图像扩散中给出了使用同一训练目标的隐式生成路径，其中 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\eta=0</annotation></semantics></math> 有确定性更新；数值方法、时间网格和噪声参数化都影响离散轨迹。此处的 Euler 步是本组对连续字段的实现。通用图像 DDIM scheduler 依赖其 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>α</mi><mo accent="true">‾</mo></mover><mi>t</mi></msub><annotation encoding="application/x-tex">\bar\alpha_t</annotation></semantics></math> 和预测参数化，直接把元素类别 ID 作为实数送入会破坏类别转移语义。减少统一时间步数还会改变 D3PM 每一步所对应的转移，缩步需要显式构造跨步离散后验。<a href="https://arxiv.org/abs/2010.02502">DDIM</a> · <a href="https://arxiv.org/abs/2107.03006">D3PM</a></p>
+</section>
+<section id="与图像扩散掩码扩散和扩散语言模型比较" class="level2">
+<h2>4. 与图像扩散、掩码扩散和扩散语言模型比较</h2>
+<p>本项目中的 <strong>MDM 指 Masked Diffusion Model（掩码扩散模型）</strong>，描述离散标签逐渐被遮住、再由模型恢复的生成机制。<strong>dLLM</strong> 描述语言模型的应用类别。两者有交集，例如 <strong>LLaDA</strong> 用掩码扩散生成文本；MatterGen 把同一机制用于元素标签，并与两个连续几何字段联合建模。<a href="https://arxiv.org/abs/2406.04329">掩码扩散</a> · <a href="https://arxiv.org/abs/2502.09992">LLaDA</a></p>
+<div class="table-scroll"><table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>方法</th>
+<th>网络看什么、预测什么</th>
+<th>与 MatterGen 相通的地方</th>
+<th>在本实验中需要区分什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像 DDPM / DDIM</td>
+<td>连续像素或潜变量上的高斯扰动，可采用噪声预测；DDIM 改变反向路径。</td>
+<td>冻结权重后，求解器和随机性仍会改变过程与单个样本。</td>
+<td>单一连续图像张量没有独立的周期晶格及类别后验。几何部分的推导可以借鉴，元素要另行处理。<a href="https://arxiv.org/abs/2006.11239">DDPM</a> · <a href="https://arxiv.org/abs/2010.02502">DDIM</a></td>
+</tr>
+<tr>
+<td>图像 Flow Matching</td>
+<td>指定条件概率路径，训练网络回归速度场；可用直线噪声到数据的插值训练速度。生成时积分学到的向量场。</td>
+<td>可以比较一阶、二阶积分以及同预算下的轨迹差异。</td>
+<td>MatterGen 的连续速度要由已学 score 和 SDE 系数换算。更换推理积分器并未更换训练目标。<a href="https://arxiv.org/abs/2210.02747">Flow Matching</a></td>
+</tr>
+<tr>
+<td>MDM（Masked Diffusion Model）</td>
+<td>用吸收态 MASK 逐步遮住离散标签，去噪网络利用其余可见上下文预测干净类别，再按反向转移恢复标签。</td>
+<td>MatterGen 的元素就是这一类离散变量：模型先给每个位点预测元素 logits，D3PM 再对照当前标签与噪声级构造反向一步的分布。</td>
+<td>晶体位点的上下文包括当前晶格、周期邻居和位置。这些几何量仍在连续扩散；因此全体元素已确定时，几何仍可更新。<a href="https://arxiv.org/abs/2406.04329">MDM</a> · <a href="https://arxiv.org/abs/2107.03006">D3PM</a></td>
+</tr>
+<tr>
+<td>扩散语言模型 LLaDA</td>
+<td>词表上的 token 经过掩码扰动，由双向 Transformer 预测遮住位置的 token，生成策略迭代更新掩码。</td>
+<td>元素和词都适用分类 logits 与离散扰动，MASK 可以直观显示未知标签。</td>
+<td>每个晶体位点同时有连续位置，每个样本还有一个共同晶格。MatterGen 用 D3PM 后验选择下一个元素状态，语言推理中的 token 选择策略另有定义。<a href="https://arxiv.org/abs/2502.09992">LLaDA</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>控制条件还可改变模型看见的结构级信息。本项目使用冻结的化学体系权重和空间群权重，对比相同起点下更换目标的结果。化学体系有输出元素白名单；空间群由条件嵌入引导，再从最终 CIF 识别空间群。两种结果适合分别讨论“哪些元素可以出现”和“空间排列实现了什么对称性”。完整的张量和编码走读见<a href="mattergen_representation_architecture.zh-CN.html">数据、网络与条件实现</a>。</p>
+</section></main>
+</div>
+</body>
+</html>

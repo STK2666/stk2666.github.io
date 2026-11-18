@@ -1,0 +1,30 @@
+# generated using pymatgen
+data_LiHoLuIn
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.21162315
+_cell_length_b   5.21399873
+_cell_length_c   5.22088623
+_cell_angle_alpha   59.95850267
+_cell_angle_beta   60.08986208
+_cell_angle_gamma   59.93208265
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   LiHoLuIn
+_chemical_formula_sum   'Li1 Ho1 Lu1 In1'
+_cell_volume   100.30142056
+_cell_formula_units_Z   1
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ho  Ho0  1  0.60250986  0.55023903  0.27258193  1
+  Li  Li1  1  0.84298950  0.81729227  0.51985663  1
+  In  In2  1  0.35057741  0.29404691  0.03397271  1
+  Lu  Lu3  1  0.10098917  0.05169944  0.77939230  1

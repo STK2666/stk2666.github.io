@@ -1,0 +1,34 @@
+# generated using pymatgen
+data_LiCu2SiSe4
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.50992460
+_cell_length_b   5.50815708
+_cell_length_c   6.90504360
+_cell_angle_alpha   113.55107024
+_cell_angle_beta   113.51957954
+_cell_angle_gamma   89.98765253
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   LiCu2SiSe4
+_chemical_formula_sum   'Li1 Cu2 Si1 Se4'
+_cell_volume   172.95950556
+_cell_formula_units_Z   1
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Cu  Cu0  1  0.59896886  0.57824934  0.59144801  1
+  Li  Li1  1  0.34865761  0.82774460  0.09147403  1
+  Se  Se2  1  0.97077888  0.43201879  0.82978004  1
+  Cu  Cu3  1  0.84880376  0.32703474  0.09177110  1
+  Se  Se4  1  0.21583547  0.20595217  0.35404348  1
+  Si  Si5  1  0.09872012  0.07861967  0.59174573  1
+  Se  Se6  1  0.46518195  0.96099007  0.82986683  1
+  Se  Se7  1  0.74496710  0.71156597  0.35380349  1

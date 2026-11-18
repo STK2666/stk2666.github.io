@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generative AI 实测结果</title>
+<link rel="stylesheet" href="assets/handbook.css">
+</head>
+<body>
+<header>
+<div class="handbook-nav">
+<a href="../index.html">← 交互预演</a>
+<span><a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/docs/results.zh-CN.md">Markdown 原稿（课程仓库，需权限）</a>　·　<a href="../analysis/experiment_index.csv">样本索引</a></span>
+</div>
+<h1>Generative AI 实测结果</h1>
+</header>
+<div class="layout">
+<nav id="TOC" aria-label="手册目录"><strong>目录</strong><ul>
+<li><a href="#cuda-主批次" id="toc-cuda-主批次">CUDA 主批次</a></li>
+<li><a href="#展示选择" id="toc-展示选择">展示选择</a></li>
+<li><a href="#本地-mps-预检查" id="toc-本地-mps-预检查">本地 MPS 预检查</a></li>
+<li><a href="#数据与显示校验" id="toc-数据与显示校验">数据与显示校验</a></li>
+<li><a href="#可交接的成果" id="toc-可交接的成果">可交接的成果</a></li>
+</ul></nav>
+<main><p>tk / agent 于 2026-11-05 完成 MatterGen base 的预训练推理、轨迹转换、数据检查和展示素材。主批次使用 hkust 的 RTX A6000 GPU 4，Python 3.10.22、PyTorch 2.2.1+cu121、CUDA 12.1、驱动 575.57.08。模型参数保持冻结。</p>
+<section id="cuda-主批次" class="level2">
+<h2>CUDA 主批次</h2>
+<p>固定 seeds 42–49，每次 batch 1、单个样本、官方默认 1000 个噪声级，保存中间记录。代码固定为 <code>92423660a8bd70e83679086e88f88596d484dc16</code>，checkpoint revision 固定为 <code>5244495dd9a979ff71abc7548a0b14b9deb0069a</code>。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Seed</th>
+<th>最终组成</th>
+<th style="text-align: right;">原子数</th>
+<th style="text-align: right;">端到端耗时/s</th>
+<th style="text-align: right;">进程 GPU 观测峰值/MiB</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>42</td>
+<td>F6InTm</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">84.81</td>
+<td style="text-align: right;">798</td>
+</tr>
+<tr>
+<td>43</td>
+<td>CoLu2Pd</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">77.46</td>
+<td style="text-align: right;">798</td>
+</tr>
+<tr>
+<td>44</td>
+<td>N10Sm4</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">77.35</td>
+<td style="text-align: right;">822</td>
+</tr>
+<tr>
+<td>45</td>
+<td>B4Ga2RhRu9Sc4</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">78.09</td>
+<td style="text-align: right;">848</td>
+</tr>
+<tr>
+<td>46</td>
+<td>Ca2Rb3Te6Zr</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">95.45</td>
+<td style="text-align: right;">818</td>
+</tr>
+<tr>
+<td>47</td>
+<td>HGaPdRh</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">78.87</td>
+<td style="text-align: right;">798</td>
+</tr>
+<tr>
+<td>48</td>
+<td>Cu2Pd</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">77.90</td>
+<td style="text-align: right;">798</td>
+</tr>
+<tr>
+<td>49</td>
+<td>CdNaNi4</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">77.64</td>
+<td style="text-align: right;">798</td>
+</tr>
+</tbody>
+</table></div>
+<p>8 次采样均完成，退出码均为 0，各候选通过文件解析、原始数据与展示帧一致性、独立最终结构及 CIF 等价性检查。每条原始轨迹有 2000 个记录，展示版本抽取 120 帧，并另存 final。合计检查 16000 个原始帧、960 个展示帧和 8 个最终结构。</p>
+<p>端到端耗时合计 647.56 秒，中位数 78.00 秒。显存每 5 秒采样一次，观测峰值范围为 798–848 MiB，包含该推理进程的 CUDA 占用。CPU RSS 观测峰值最大为 1818.84 MiB。计时覆盖进程启动至输出验证结束，下载与安装单独完成。上述统计描述本次指定环境与配置下的 8 个样本。物理验证由 Leo 在后续案例环节提供。</p>
+<p>逐样本来源位于各交接包的 <code>raw/run_config.json</code>、<code>raw/status.json</code> 和 <code>validation_report.json</code>。机器可读汇总见 <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/overview/run_summary.json">run_summary.json（课程仓库，需权限）</a>，曲线数据及文件哈希见 <a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/cuda-cohort/analysis_manifest.json">CUDA 分析清单（课程仓库，需权限）</a>。</p>
+</section>
+<section id="展示选择" class="level2">
+<h2>展示选择</h2>
+<p>优先展示以下 3 个候选，以原子数和组成复杂度覆盖不同规模。</p>
+<ul>
+<li><code>tk-cuda-seed48</code> 为 Cu2Pd，3 个原子，适合先解释晶胞和元素的基本表示。</li>
+<li><code>tk-cuda-seed42</code> 为 F6InTm，8 个原子，适合展示元素掩码逐渐消失和空间排列变化。</li>
+<li><code>tk-cuda-seed45</code> 为 B4Ga2RhRu9Sc4，20 个原子，适合展示联合生成更复杂组成与结构的例子。</li>
+</ul>
+<p>选择依据是生成过程展示需求。全部 8 个候选均可从索引访问，Leo 可按计算条件选取后续验证案例。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/deliverables/index.json">候选索引（课程仓库，需权限）</a> · <a href="../analysis/overview/generated_candidates.png">最终结构概览</a></p>
+</section>
+<section id="本地-mps-预检查" class="level2">
+<h2>本地 MPS 预检查</h2>
+<p>另外保留 <code>tk-mps-seed42</code>，在 Apple M3、24 GB 统一内存上运行官方实验性 MPS 路径，开启 CPU fallback。该样本得到 CsAg2AsSe4，8 个原子，耗时 1247.57 秒，CPU RSS 观测峰值为 4560.66 MiB。该记录的 GPU 显存测量值为空。</p>
+<p>MPS 预检查和 CUDA 主批次使用独立候选编号与统计。两种环境相同 seed 得到不同候选，复现时需要同时固定硬件、软件和采样配置。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/deliverables/tk-mps-seed42/manifest.json">MPS 交接包（课程仓库，需权限）</a></p>
+</section>
+<section id="数据与显示校验" class="level2">
+<h2>数据与显示校验</h2>
+<p>数据工具 14 项针对性回归测试通过，包含逐帧元素、晶胞及原子数量变化，独立 final，CIF 换序、周期包装及旋转等价性，非有限值，文件哈希和编码篡改。</p>
+<p>实际预览已读取 MPS 样本的 120 个显示帧及独立 final，浏览器实测播放、暂停、首帧 MASK 和最终结构显示。原始帧、每原子体积和元素计数与导出数据对应。缩放与旋转投影覆盖全部 9 个真实候选的 1089 个结构、3 种画布尺寸及默认视角与 32 个旋转角，共完成 107811 次边界检查，0 失败。<a href="https://github.com/STK2666/infh5000-trust-ai-materials/blob/69ae704b25769d64dff58480053e45585f69a254/members/tk/analysis/overview/projection_qa.json">投影检查摘要（课程仓库，需权限）</a></p>
+<p>两项实现细节保证科学表达与源数据一致。</p>
+<ol type="1">
+<li>官方 base 的掩码状态以原子序数 101 存储。交接格式保留原始数值和元素字符串，并单独声明编码，将对应位置显示为灰色 MASK。元素计数曲线对 MASK 独立统计。</li>
+<li>采样记录和最终 mean 结构分别读取，网页的 final 状态来自最终输出文件。播放进度按保存帧顺序标注。</li>
+</ol>
+</section>
+<section id="可交接的成果" class="level2">
+<h2>可交接的成果</h2>
+<ul>
+<li>8 个 CUDA 候选交接包及 1 个独立 MPS 预检查包。</li>
+<li>CUDA 主批次的 16 张过程图、8 份过程 CSV 和候选汇总。</li>
+<li>真实最终结构概览图、来源索引和完整检查报告。</li>
+<li>推理、转换、校验、分析、权重下载与概览生成脚本。</li>
+<li>可独立运行的数据预览页，以及 90 秒讲解、页面短句和报告段落。</li>
+</ul>
+<p>项目总网页的接入与案例物理结论由对应成员继续完成。交接字段为 tk 的已实现接口版本 1.1，跨成员采纳状态记录为待确认。</p>
+</section></main>
+</div>
+</body>
+</html>

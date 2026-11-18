@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       Dy2PdGa
+_chemical_formula_sum              "Dy2 Pd1 Ga1"
+_cell_length_a       5.026473480256259
+_cell_length_b       5.02604618683448
+_cell_length_c       5.027477264404297
+_cell_angle_alpha    60.00495479193467
+_cell_angle_beta     59.98988820590134
+_cell_angle_gamma    60.00315721842829
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Dy  Dy1       1.0  0.5021082758903503  0.04290275275707245  0.048445746302604675  1.0000
+  Dy  Dy2       1.0  0.0019936403259634902  0.5427601337432861  0.5487542748451233  1.0000
+  Pd  Pd1       1.0  0.25206089019775385  0.7927554249763489  0.7985859513282776  1.0000
+  Ga  Ga1       1.0  0.7520588636398315  0.2927273809909821  0.2985932230949402  1.0000

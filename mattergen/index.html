@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>如何用扩散模型生成材料？ · MatterGen</title>
+    <link rel="stylesheet" href="material-study.css" />
+    <link rel="stylesheet" href="experiments.css" />
+    <link rel="stylesheet" href="focus-scenes.css" />
+    <script defer src="crystal-data.js"></script>
+    <script defer src="material-study.js"></script>
+    <link rel="stylesheet" href="tensor-noise.css" />
+    <script defer src="tensor-noise-data.js"></script>
+    <script defer src="tensor-noise.js"></script>
+    <script defer src="experiments-data.js"></script>
+    <script defer src="condition-paths.js"></script>
+    <script defer src="experiments.js"></script>
+    <script defer src="focus-scenes.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到正文</a>
+    <header class="mast">
+      <div class="mast-inner">
+        <a class="brand" href="#representation" aria-label="材料生成研究首页"
+          ><span class="brand-symbol" aria-hidden="true"
+            ><i></i><i></i><i></i></span
+          ><b>MatterGen</b><span class="mast-divider"></span
+          ><span>材料生成研究</span></a
+        >
+        <div class="resource-links">
+          <span class="course">INFH5000</span
+          ><a href="guide/material_diffusion_handbook.zh-CN.html"
+            >研究手册 ↗</a
+          ><a href="analysis/experiment_index.csv">实验索引 ↗</a>
+        </div>
+      </div>
+    </header>
+    <div class="shell">
+      <nav class="contents" aria-label="研究章节">
+        <div class="nav-inner">
+          <p class="nav-label">研究目录</p>
+          <div class="act">
+            <h2>晶体表示与网络</h2>
+            <a href="#representation"><span>01</span> 晶体与晶胞</a
+            ><a href="#backbone"><span>02</span> 周期图网络</a>
+          </div>
+          <div class="act">
+            <h2>生成目标与模型选择</h2>
+            <a href="#conditions"><span>03</span> 生成条件</a
+            ><a href="#design-space"><span>04</span> 扩散设计空间</a>
+          </div>
+          <div class="act">
+            <h2>采样原理与实验</h2>
+            <a href="#diffusion"><span>05</span> 加噪与去噪</a
+            ><a href="#trajectory"><span>06</span> 真实生成轨迹</a
+            ><a href="#sampler"><span>07</span> 采样器与路径</a
+            ><a href="#guidance"><span>08</span> 条件引导强度</a
+            ><a href="#symmetry"><span>09</span> 空间群检验</a>
+          </div>
+        </div>
+      </nav>
+      <div class="mobile-nav">
+        <label for="scene-select">研究目录</label
+        ><select id="scene-select"></select>
+      </div>
+      <main id="main" tabindex="-1">
+        <section id="representation" class="scene">
+          <header class="scene-intro">
+            <p class="context">晶体表示与网络<span> / </span>晶体表示</p>
+            <h1>如何用扩散模型生成材料？</h1>
+            <p class="lead">
+              从一块周期晶体开始。取出它的一个晶胞，元素、坐标和晶格就能描述整个重复结构。
+            </p>
+          </header>
+          <div class="representation-grid">
+            <figure class="plate">
+              <div class="figure-top">
+                <span>周期晶体</span>
+                <div class="seg" aria-label="晶胞显示">
+                  <button type="button" data-view="unit">单胞</button
+                  ><button type="button" aria-pressed="true" data-view="array">
+                    周期阵列
+                  </button>
+                </div>
+              </div>
+              <canvas
+                class="crystal-canvas"
+                id="structure-view"
+                tabindex="0"
+                aria-label="Cu₂Pd 实际晶胞与周期重复阵列，拖动或用方向键旋转"
+              ></canvas>
+              <figcaption>
+                <div id="repr-legend" class="legend"></div>
+                <span>拖动旋转 · 滚轮缩放</span>
+              </figcaption>
+            </figure>
+            <div class="readout">
+              <div class="section-label">一个晶胞的三个字段</div>
+              <div class="field-picker" role="group" aria-label="选择字段">
+                <button data-field="A" aria-pressed="true"><i>A</i> 元素</button
+                ><button data-field="F"><i>F</i> 坐标</button
+                ><button data-field="L"><i>L</i> 晶格</button>
+              </div>
+              <h2 id="field-title"></h2>
+              <p id="field-caption"></p>
+              <pre id="field-values"></pre>
+              <div class="formula" id="field-equation"></div>
+            </div>
+          </div>
+          <p class="source-line">
+            数据取自基础批次的 Cu₂Pd
+            终态。深色晶胞是一个重复单元，浅色站点是周期像。<a
+              href="deliverables/tk-cuda-seed48/final.cif"
+              >原始 CIF ↗</a
+            >
+          </p>
+        </section>
+        <section id="backbone" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">晶体表示与网络<span> / </span>几何骨干</p>
+            <h1>怎样找到晶胞另一侧的近邻？</h1>
+            <p class="lead">
+              GemNet-T
+              将每个站点与周期近邻连边，用边长、方向与夹角更新站点特征。
+            </p>
+          </header>
+          <div class="representation-grid">
+            <figure class="plate">
+              <div class="figure-top">
+                <span>Cu 与 Pd 的两个周期像</span>
+                <div class="seg">
+                  <button data-image="central">胞内</button
+                  ><button data-image="periodic" aria-pressed="true">
+                    跨边界
+                  </button>
+                </div>
+              </div>
+              <canvas
+                class="crystal-canvas"
+                id="neighbor-view"
+                tabindex="0"
+                aria-label="周期 Cu 与 Pd 近邻几何关系，拖动旋转"
+              ></canvas>
+              <figcaption>
+                <span id="neighbor-length"></span><span>Å · 实测距离</span>
+              </figcaption>
+            </figure>
+            <div class="readout">
+              <div class="section-label">GemNet-T · 单个噪声时刻</div>
+              <h2>一个站点如何读取周围几何？</h2>
+              <ol class="steps">
+                <li>
+                  <strong>构建周期图</strong>
+                  <p>搜索 7 Å 内的周期像，构图时每个站点最多保留 50 个近邻。</p>
+                </li>
+                <li>
+                  <strong>聚合边与三元组</strong>
+                  <p>
+                    四个交互块用距离、方向、夹角交换信息。邻居的列表顺序不改变聚合含义。
+                  </p>
+                </li>
+                <li>
+                  <strong>读出三类预测</strong>
+                  <p>
+                    元素类别
+                    logits、位置向量、对称晶格张量。方向性读出随几何旋转。
+                  </p>
+                </li>
+              </ol>
+            </div>
+          </div>
+          <details class="mechanism">
+            <summary>看一次真实前向的张量形状</summary>
+            <p>
+              把 Cu₂Pd 的 CIF 按训练流程重读，在 t = 0.4 加噪。CPU
+              实测的中间站点特征为 [3,512]；输出为元素 logits [3,101]、位置
+              [3,3]、晶格 [1,3,3]。噪声时刻经正弦余弦编码后送入骨干。
+            </p>
+          </details>
+          <p class="source-line">
+            线段标出一对站点之间的几何位移。<a
+              href="guide/mattergen_representation_architecture.zh-CN.html"
+              >张量、基函数与真实前向结果 ↗</a
+            >
+          </p>
+        </section>
+        <section id="conditions" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">生成目标与模型选择<span> / </span>条件</p>
+            <h1>希望生成什么样的晶体？</h1>
+            <p class="lead">
+              给定晶体可以预测性质；反过来，也可以给定要求生成候选。就像文字描述所需图像，这里的要求可以是元素集合或空间群。
+            </p>
+          </header>
+          <div class="condition-view">
+            <div class="chooser" role="group" aria-label="选择生成要求">
+              <button data-cond="base" aria-pressed="true">自由生成</button
+              ><button data-cond="chem">指定元素集合</button
+              ><button data-cond="sg">指定空间群</button>
+            </div>
+            <div class="condition-body">
+              <div>
+                <p class="section-label">给定条件</p>
+                <p class="math-display" id="cond-symbol"></p>
+                <h2 id="cond-title"></h2>
+              </div>
+              <div class="condition-fields">
+                <div>
+                  <span>输入表示</span>
+                  <p id="cond-code"></p>
+                </div>
+                <div>
+                  <span>仍由模型生成</span>
+                  <p id="cond-free"></p>
+                </div>
+                <div>
+                  <span>如何检验</span>
+                  <p id="cond-test"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="source-line">
+            本项目分别使用三份已发布权重。化学体系与空间群来自各自的条件模型。<a
+              href="guide/mattergen_representation_architecture.zh-CN.html"
+              >条件编码与注入位置 ↗</a
+            >
+          </p>
+        </section>
+        <section id="design-space" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">生成目标与模型选择<span> / </span>设计空间</p>
+            <h1>怎样给不同的变量加噪？</h1>
+            <p class="lead">
+              生成顺序、变量取值和扰动规则是三个独立选择。MatterGen
+              给定站点数，联合细化整个晶胞。
+            </p>
+          </header>
+          <div class="design">
+            <div class="chooser" role="group" aria-label="选择建模属性">
+              <button data-axis="state" aria-pressed="true">状态与目标</button
+              ><button data-axis="noise">前向扰动</button
+              ><button data-axis="factor">生成顺序</button>
+            </div>
+            <div class="table-scroll">
+              <table class="design-table">
+                <thead>
+                  <tr>
+                    <th>生成任务</th>
+                    <th id="design-col1"></th>
+                    <th id="design-col2"></th>
+                  </tr>
+                </thead>
+                <tbody id="design-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="channel-row">
+            <div>
+              <i>A</i><strong>元素</strong><span>吸收态 MASK · D3PM</span>
+            </div>
+            <div>
+              <i>F</i><strong>分数坐标</strong
+              ><span>周期环面 · Wrapped VE</span>
+            </div>
+            <div>
+              <i>L</i><strong>对称晶格</strong
+              ><span>尺寸先验 · Lattice VP</span>
+            </div>
+          </div>
+          <p class="source-line">
+            Masked Diffusion 是离散扩散的一种。AR 可用 DM / FM
+            建模下一块的条件分布。<a
+              href="guide/diffusion_design_space.zh-CN.html"
+              >设计维度与逐字段公式 ↗</a
+            >
+          </p>
+        </section>
+        <section id="diffusion" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">采样原理与实验<span> / </span>扩散原理</p>
+            <h1>先学会去噪，再反向生成。</h1>
+            <p class="lead">
+              给已有晶体施加已知扰动，训练网络预测原元素和几何去噪方向。生成时，本组从随机初态反复调用作者训练好的网络。
+            </p>
+          </header>
+          <div class="diffusion-demo">
+            <div class="figure-top">
+              <strong>训练时的正向边际分布</strong
+              ><span class="micro">Cu₂Pd · 3 个站点 · 理论曲线</span>
+            </div>
+            <canvas
+              id="prior-chart"
+              aria-label="三个前向加噪通道，横轴为噪声时刻"
+            ></canvas
+            ><label class="range-row"
+              ><span>噪声时刻</span
+              ><input
+                id="noise-time"
+                type="range"
+                min="0"
+                max="100"
+                value="50" /><output id="noise-label"></output
+            ></label>
+            <div class="priors">
+              <div>
+                <span>元素被遮住的概率</span><strong id="noise-A"></strong>
+              </div>
+              <div>
+                <span>分数坐标噪声标准差</span><strong id="noise-F"></strong>
+              </div>
+              <div>
+                <span>晶格均值中的原晶格系数</span
+                ><strong id="noise-L"></strong>
+              </div>
+            </div>
+          </div>
+          <div class="sequence">
+            <strong>冻结权重后</strong><span>采样先验</span><b>→</b
+            ><span>构图并预测</span><b>→</b><span>更新晶体</span><b>↺</b
+            ><span>导出最终 CIF</span>
+          </div>
+          <p class="source-line">
+            曲线分别使用各自标注的纵轴范围。真实采样轨迹在下一节。<a
+              href="guide/diffusion_design_space.zh-CN.html"
+              >噪声日程与训练目标 ↗</a
+            >
+          </p>
+        </section>
+        <section id="trajectory" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">采样原理与实验<span> / </span>基础批次</p>
+            <h1>沿着一条真实轨迹看生成。</h1>
+            <p class="lead">
+              八个无条件候选各有 2,000
+              条原始记录。拖动时间轴，观察元素何时确定，以及晶胞如何继续变化。
+            </p>
+          </header>
+          <div class="trajectory-bar">
+            <label
+              >候选
+              <select id="traj-seed"></select></label
+            ><a id="traj-cif">独立最终 CIF ↗</a>
+          </div>
+          <div class="chooser traj-milestones" role="group" aria-label="跳到选定事件首次可见的展示帧">
+            <button data-milestone="start">全 MASK 初态</button>
+            <button data-milestone="first">首次看见元素</button>
+            <button data-milestone="all">全部元素可见</button>
+          </div>
+          <div class="representation-grid traj-grid">
+            <figure class="plate">
+              <div class="figure-top">
+                <span id="traj-phase"></span
+                ><span id="traj-id" class="micro"></span>
+              </div>
+              <canvas
+                class="crystal-canvas"
+                id="trajectory-view"
+                tabindex="0"
+                aria-label="候选轨迹的当前晶体结构，拖动旋转"
+              ></canvas>
+              <figcaption>
+                <div class="legend" id="traj-legend"></div>
+                <span>当前帧适配</span>
+              </figcaption>
+            </figure>
+            <div class="traj-readout">
+              <div class="section-label">全轨迹 · 2,000 个记录</div>
+              <div class="chart-label">
+                <span>待定元素位点</span><strong id="traj-mask"></strong>
+              </div>
+              <canvas
+                class="trace-chart"
+                id="traj-mask-chart"
+                aria-label="全记录的 MASK 位点数和当前记录位置"
+              ></canvas>
+              <div class="chart-label">
+                <span>每原子晶胞体积</span><strong id="traj-vol"></strong>
+              </div>
+              <canvas
+                class="trace-chart"
+                id="traj-volume-chart"
+                aria-label="全记录的每原子体积和当前记录位置"
+              ></canvas>
+            </div>
+          </div>
+          <div class="play-controls">
+            <button id="traj-play">播放</button
+            ><label for="traj-frame" class="sr-only">保存记录</label
+            ><input
+              id="traj-frame"
+              type="range"
+              min="0"
+              max="119"
+              value="0"
+            /><output id="traj-frame-label"></output
+            ><button id="traj-final">独立终态</button>
+          </div>
+          <p class="source-line">
+            播放使用 120 个实测抽样帧。最终 CIF 来自生成器单独导出的终态。<a
+              href="guide/results.zh-CN.html"
+              >八个候选的运行与校验 ↗</a
+            >
+          </p>
+        </section>
+        <section id="sampler" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">采样原理与实验<span> / </span>采样器</p>
+            <h1>起点和采样器，各自改变了什么？</h1>
+            <p class="lead">
+              先固定采样器，同时观察三个噪声起点。再固定起点，比较随机更新与连续概率流的路径。三种方法都用同一网络预测元素与几何。
+            </p>
+          </header>
+          <details class="mechanism before-widget">
+            <summary>SDE、ODE 和默认校正步如何改变更新？</summary>
+            <p>
+              反向 SDE 在递减时间上使用漂移 f − g²s 和随机项；连续概率流 ODE
+              使用 f − ½g²s。s 是网络估计的 score，g 是该字段的扩散幅值。默认 PC
+              每级对几何执行一次 Langevin 校正，再做祖先预测。三组都保留 1,000
+              个噪声级。
+            </p>
+          </details>
+          <div id="sampler-experiment"></div>
+          <h2>指定同一组元素，两次生成会得到相同配比吗？</h2>
+          <div id="condition-pair"></div>
+          <p class="source-line">
+            <a href="guide/training_free_sampler.zh-CN.html"
+              >求解器方程、耗时与全部配对结果 ↗</a
+            >
+          </p>
+        </section>
+        <section id="guidance" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">采样原理与实验<span> / </span>条件引导</p>
+            <h1>同一个条件，要影响预测多强？</h1>
+            <p class="lead">
+              CFG 在同一带噪状态上组合两次预测。固定目标调节
+              γ，检查元素集合与配比。
+            </p>
+            <div class="inline-equation">
+              <span>引导输出</span> = 无条件输出 + γ × (条件输出 − 无条件输出)
+            </div>
+          </header>
+          <div id="guidance-experiment"></div>
+          <p class="source-line">
+            <a href="guide/training_free_control.zh-CN.html"
+              >引导公式、白名单消融与结果 ↗</a
+            >
+          </p>
+        </section>
+        <section id="symmetry" class="scene" hidden>
+          <header class="scene-intro">
+            <p class="context">采样原理与实验<span> / </span>目标复核</p>
+            <h1>生成的空间群符合要求吗？</h1>
+            <p class="lead">
+              从最终 CIF
+              的坐标、晶格和元素独立检验对称性，将条件中的请求值与实现值逐一对照。
+            </p>
+          </header>
+          <div id="symmetry-experiment"></div>
+          <div class="next-science">
+            <h2>把同一份最终 CIF 交给物理验证。</h2>
+            <p>
+              元素和空间群可以从结构复核。能量、受扰动后的响应和振动稳定性，需要后续独立计算。
+            </p>
+          </div>
+          <p class="source-line">
+            <a href="guide/training_free_spacegroup.zh-CN.html"
+              >容差扫描与独立终态 ↗</a
+            >
+          </p>
+        </section>
+        <footer class="pager">
+          <button id="prev-scene">← 上一节</button
+          ><span id="scene-counter"></span><button id="next-scene"></button>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
